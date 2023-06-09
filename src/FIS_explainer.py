@@ -5,8 +5,9 @@ import time
 import copy
 from feature_importance_helper import *
 from feature_interaction_score_utilities import *
-ROOT_DIR = r'C:\Users\chaoL\Documents\Project\Exploring the FIS in the Rashomon set'
-OUTPUT_DIR = ROOT_DIR+'/results'
+import os
+ROOT_DIR = os.getcwd()
+OUTPUT_DIR = ROOT_DIR+'/../results'
 
 class model_wrapper:
     def __init__(
@@ -354,11 +355,11 @@ class fis_explainer:
         return loss_rset.transpose((1,0,2)).reshape(len(self.all_pairs), -1)
 
     def explain(self):
-        self.FIS_in_Rashomon_set = {}
         '''
         Find the range of FIS for each pair of features in the Rashomon set
         '''
-        fis_ref = self._get_ref_fis()
+        self.FIS_in_Rashomon_set = {}
+        self.fis_ref = self._get_ref_fis()
         m_all_optimal, points_all_max_optimal, points_all_min_optimal, fis_all_optimal = self._explore_m_in_R(
             self.epsilon, self.loss, self.v_list, self.model, self.input,
             self.output, delta=0.1, regression=False)
@@ -376,12 +377,13 @@ class fis_explainer:
         joint_effect_all_pair_set, loss_emp_all_pair_set = self._get_all_joint_effects(m_all_sub_set_optimal)
         print('Calculation done')
         print('Calculating FISC in the Rashomon set')
-        fis_in_r = self._get_fis_in_r(self.all_pairs, np.array(joint_effect_all_pair_set), all_main_effects_diff)
-        for idx, fis_each_pair in enumerate(fis_in_r):
+        self.fis_in_r = self._get_fis_in_r(self.all_pairs, np.array(joint_effect_all_pair_set), all_main_effects_diff)
+        self.loss_in_r = self._get_loss_in_r(self.all_pairs, np.array(loss_emp_all_pair_set))
+        for idx, fis_each_pair in enumerate(self.fis_in_r):
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)] = {}
-            self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['feature_idx'] = fis_ref[idx][0]
+            self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['feature_idx'] = self.fis_ref[idx][0]
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results'] = {}
-            self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['ref'] = fis_ref[idx][1]
+            self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['ref'] = self.fis_ref[idx][1]
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['min'] = np.min(fis_each_pair)
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['max'] = np.max(fis_each_pair)
         print('Calculation done')
