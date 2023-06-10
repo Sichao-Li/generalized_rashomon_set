@@ -22,6 +22,7 @@ import matplotlib.colors
 import torch
 from PIL import Image
 import json
+import logging
 def colors_vis(c, lightness=0.5):
     default_colors = ["#1E88E5", "#ff0d57", "#13B755", "#7C52FF", "#FFC000", "#00AEEF"]
     rgb_color = mcolors.hex2color(default_colors[c])

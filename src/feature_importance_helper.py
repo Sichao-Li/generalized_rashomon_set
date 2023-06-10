@@ -1,4 +1,5 @@
 from general_utilities import *
+logger = logging.getLogger(__name__)
 
 def calculate_boundary(y_true, y_pred, epsilon_rate=0.05, regression=True):
     '''
@@ -45,7 +46,7 @@ def explore_m_in_R(bound, loss_ref, vlist, model, X, y, delta=0.01, regression=T
         fis_main[idx, :, 1] = fis_all_minus
     return m, points_all_max, points_all_min, fis_main
 
-def greedy_search(vidx, bound, loss_ref, model, X, y, delta=0.1, direction=True, regression=True, softmax=False, verbose=False):
+def greedy_search(vidx, bound, loss_ref, model, X, y, delta=0.1, direction=True, regression=True, softmax=False):
     '''
     greedy search possible m for a single feature
         Input:
@@ -120,8 +121,7 @@ def greedy_search(vidx, bound, loss_ref, model, X, y, delta=0.1, direction=True,
             else:
                 lr=lr*0.1
                 count = count+1
-            if not verbose:
-                print('Feature {} at boundary {} * epsilon with m {} achieves loss {}'.format(vidx, i, m, mydiff))
+            logger.info('Feature {} at boundary {} * epsilon with m {} achieves loss {}'.format(vidx, i, m, mydiff))
         points_all.append(points)
         m_all.append(m)
         # calculate fis based on m

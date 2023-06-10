@@ -100,156 +100,126 @@ def list_flatten(list, reverse):
         list_reshaped.append(sorted(flat_list, reverse=reverse))
     return list_reshaped
 
-def save_m_all_set(points_all_positive, points_all_negative, epsilon):
-    points_all_positive_reshaped = list_flatten(points_all_positive, reverse=False)
-    points_all_negative_reshaped = list_flatten(points_all_negative, reverse=True)
-    p = len(np.arange(0.2, 1+0.2, 0.2))
-    d = len(np.arange(0.0, 1+0.1, 0.1))
-    n_features = len(points_all_positive)
-    m_all_sub_set = np.ones([p, d, n_features, 2], dtype=np.float64)
-    for idxj,sub_boundary_rate in enumerate(np.arange(0.2, 1+0.2, 0.2)):
-        for idxk, j in enumerate(np.arange(0.0, 1+0.1, 0.1)):
+
+def get_all_m_with_t_in_range(points_all_max, points_all_min, epsilon):
+    '''
+    :return: an m matrix in shape [5, 11, n_features, 2] corresponding to sub-dominant boundary, e.g. 0.2 * epsilon
+    '''
+    points_all_positive_reshaped = list_flatten(points_all_max, reverse=False)
+    points_all_negative_reshaped = list_flatten(points_all_min, reverse=True)
+    p = len(np.arange(0.2, 1 + 0.2, 0.2))
+    d = len(np.arange(0.0, 1 + 0.1, 0.1))
+    n_features = len(points_all_min)
+    m_multi_boundary_e = np.ones([p, d, n_features, 2], dtype=np.float64)
+    for idxj, sub_boundary_rate in enumerate(np.arange(0.2, 1 + 0.2, 0.2)):
+        for idxk, j in enumerate(np.arange(0.0, 1 + 0.1, 0.1)):
             for idxi, feature in enumerate(points_all_positive_reshaped):
                 for idv in (feature):
-                    if idv[-1] <= j*sub_boundary_rate*epsilon:
-                        m_all_sub_set[idxj,idxk,idxi,0] = idv[0]
+                    if idv[-1] <= j * sub_boundary_rate * epsilon:
+                        m_multi_boundary_e[idxj, idxk, idxi, 0] = idv[0]
                     else:
                         break
             for idxi, feature in enumerate(points_all_negative_reshaped):
                 for idv in (feature):
-                    if idv[-1] <= j*sub_boundary_rate*epsilon:
-                        m_all_sub_set[idxj,idxk,idxi,1] = idv[0]
+                    if idv[-1] <= j * sub_boundary_rate * epsilon:
+                        m_multi_boundary_e[idxj, idxk, idxi, 1] = idv[0]
                     else:
                         break
     #   np.transpose(1,0,2)
-    return m_all_sub_set
+    return m_multi_boundary_e
 
-def Integral_Approximation(cord_sorted):
-    cord_sorted_x = np.array(cord_sorted)[:, 0]
-    cord_sorted_x_delta = cord_sorted_x[1:] - cord_sorted_x[:-1]
-    cord_sorted_y = abs(np.array(cord_sorted)[1:, 1])
-    area = sum(cord_sorted_x_delta * cord_sorted_y) + abs(cord_sorted[0][0] * cord_sorted[0][1])
-    return area
+def get_all_main_effects(m_multi_boundary_e, input, output, model, v_list, regression):
+    '''
+    :param m_multi_boundary_e: an m matrix in shape [5, 11, n_features, 2]
+    :param model: reference model
+    :return:
+        fi_all_ratio: main effects of all features in ratio
+        fi_all_diff: main effects of all features in difference
+    '''
+    fi_all_diff = np.zeros(m_multi_boundary_e.shape)
+    fi_all_ratio = np.zeros(m_multi_boundary_e.shape)
+    for idx, sub_boundary_rate in enumerate(np.arange(0.2, 1.2, 0.2)):
+        for idxj, j in enumerate(np.arange(0, 1 + 0.1, 0.1)):
+            for i in range(len(v_list)):
+                for k in range(2):
+                    X0 = input.copy()
+                    X0[:, i] = X0[:, i] * m_multi_boundary_e[idx, idxj, i, k]
+                    loss_after, loss_before = feature_effect(i, X0, output, model, 30, regression)
+                    fi_all_ratio[idx, idxj, i, k] = loss_after / loss_before
+                    fi_all_diff[idx, idxj, i, k] = loss_after - loss_before
+    return fi_all_ratio, fi_all_diff
 
-def Integral_Approximation_Double(cord_sorted):
-    cord_sorted_x = cord_sorted.copy()
-    cord_sorted_y = cord_sorted.copy()
-    cord_sorted_x.sort(key=lambda c: (c[0]))
-    cord_sorted_x = np.array(cord_sorted_x)[:, 0]
-    cord_sorted_x_delta = cord_sorted_x[1:] - cord_sorted_x[:-1]
-    cord_sorted_y.sort(key=lambda c: (c[1]))
-    cord_sorted_y = np.array(cord_sorted_y)[:, 1]
-    cord_sorted_y_delta = cord_sorted_y[1:] - cord_sorted_y[:-1]
-    volumn = 0
-    cord_sorted_z = abs(np.array(cord_sorted)[1:, 2])
-    for i in cord_sorted_y_delta:
-        volumn_sub = sum(cord_sorted_x_delta * i * cord_sorted_z)
-        volumn = volumn + volumn_sub
-    return volumn
+def get_all_joint_effects(m_multi_boundary_e, input, output, v_list, n_ways, model, regression):
+    '''
+    :param m_multi_boundary_e: an m matrix in shape [5, 11, n_features, 2]
+    :return:
+        joint_effect_all_pair_set: all joint effects of features [5, n_joint_pairs, 36] in fis, where 36 is 2^2*9
+        loss_emp_all_pair_set: all joint effects of features [5, n_joint_pairs, 36] in loss
+    '''
+    joint_effect_all_pair_set = []
+    loss_emp_all_pair_set = []
+    for m_all in m_multi_boundary_e:
+        m_all = m_all.transpose((1, 0, 2))
+        joint_effect_all_pair, loss_emp = Interaction_effect_all_pairs(input, output, v_list,
+                                                                       n_ways, model, m_all,
+                                                                       regression=regression)
+        joint_effect_all_pair_set.append(joint_effect_all_pair)
+        loss_emp_all_pair_set.append(loss_emp)
+    return joint_effect_all_pair_set, loss_emp_all_pair_set
 
+def get_fis_in_r(all_pairs, joint_effect_all_pair_set, main_effect_all_diff, n_ways, quadrants):
+    '''
+    :param pairs: all pairs of interest
+    :param joint_effect_all_pair_set: all joint effects of these pairs
+    :param main_effect_all_diff: all main effects of these features in the pair
+    :return: fis of all pairs in the Rashomon set
+    '''
+    fis_rset = np.ones(joint_effect_all_pair_set.shape)
+    for i in range(5):
+        joint_effect_all_pair_e = joint_effect_all_pair_set[i]
+        main_effect_all_diff_e = main_effect_all_diff[i]
+        main_effect_all_diff_e_reshaped = main_effect_all_diff_e.transpose((1, 0, 2))
+        for idx, pair in enumerate(all_pairs):
+            # fi is 40x11x2, fij_joint is 780x36
+            fi = main_effect_all_diff_e_reshaped[pair[0]]
+            fj = main_effect_all_diff_e_reshaped[pair[1]]
+            fij_joint = joint_effect_all_pair_e[idx]
+            # 9 paris
+            sum_to_one = find_all_sum_to_one_pairs(n_ways)
+            for idxk, sum in enumerate(sum_to_one):
+                for idxq, quadrant in enumerate(quadrants):
+                    # for each pair, find the main effect
+                    single_fis = abs(
+                        fij_joint[[idxk * 4 + quadrant]] - fi[sum[0]][quadrants[quadrant][0]] - fj[sum[-1]][
+                            quadrants[quadrant][-1]])
+                    # single_fis = (
+                    #     fij_joint[[idxk * 4 + quadrant]] - fi[sum[0]][quadrants[quadrant][0]] - fj[sum[-1]][
+                    #         quadrants[quadrant][-1]])
+                    fis_rset[i, idx, idxk * 4 + quadrant] = single_fis
+    return fis_rset.transpose((1, 0, 2)).reshape(len(all_pairs), -1)
 
-# def feature_interaction_strength(emp_diff, myloss_all, n_ways, boundary, pair_idx, loss0):
-#     '''
-#     amount is approximated by the area of a circle - delta*(emp_diff+exp_diff)
-#
-#         Input:
-#             emp_diff: calculated difference
-#             n_ways: number of ways
-#             boundary: pre-defined boundary
-#         Output:
-#             the feature interaction strength
-#
-#     '''
-#     top = (myloss_all - loss0 - boundary) * (myloss_all - loss0 - boundary)
-#     bot = np.multiply(myloss_all - loss0, myloss_all - loss0)
-#     strength = np.sum(top / bot, axis=1)
-#
-#     sum_to_one_pairs = find_all_sum_to_one_pairs(n_ways)
-#     #     exp_diff = np.array(sum_to_one_pairs)[:,0]*0.1
-#     cord = []
-#     circle = []
-#     cord_sorted_1 = []
-#     cord_sorted_2 = []
-#     cord_sorted_3 = []
-#     cord_sorted_4 = []
-#     if n_ways > 2:
-#         cord_sorted_5 = []
-#         cord_sorted_6 = []
-#         cord_sorted_7 = []
-#         cord_sorted_8 = []
-#         for idx, pair in enumerate(sum_to_one_pairs):
-#             cosa = pair[0] / (np.sqrt(pair[0] ** 2 + pair[1] ** 2 + pair[2] ** 2))
-#             cosb = pair[1] / (np.sqrt(pair[0] ** 2 + pair[1] ** 2 + pair[2] ** 2))
-#             cosc = pair[2] / (np.sqrt(pair[0] ** 2 + pair[1] ** 2 + pair[2] ** 2))
-#             dega = np.arccos(cosa)
-#             degb = np.arccos(cosb)
-#             degc = np.arccos(cosc)
-#             #           iterate in 111, 110, 101, 100, 011, 010, 001, 000
-#             l = [1, -1]
-#             idx2 = 0
-#             for d in list(itertools.product(l, repeat=3)):
-#                 dis = boundary + emp_diff[pair_idx][idx * 8 + idx2]
-#                 cord.append([dis * np.cos(dega) * d[0], dis * np.cos(degb) * d[1], dis * np.cos(degc) * d[2]])
-#                 circle.append(
-#                     [boundary * np.cos(dega) * d[0], boundary * np.cos(degb) * d[1], boundary * np.cos(degc) * d[2]])
-#                 cord_sorted_1.append([dis * np.cos(dega) * d[0], dis * np.cos(degb) * d[1],
-#                                       dis * np.cos(degc) * d[2]]) if idx2 == 0 else None
-#                 cord_sorted_2.append([dis * np.cos(dega) * d[0], dis * np.cos(degb) * d[1],
-#                                       dis * np.cos(degc) * d[2]]) if idx2 == 1 else None
-#                 cord_sorted_3.append([dis * np.cos(dega) * d[0], dis * np.cos(degb) * d[1],
-#                                       dis * np.cos(degc) * d[2]]) if idx2 == 2 else None
-#                 cord_sorted_4.append([dis * np.cos(dega) * d[0], dis * np.cos(degb) * d[1],
-#                                       dis * np.cos(degc) * d[2]]) if idx2 == 3 else None
-#                 cord_sorted_5.append([dis * np.cos(dega) * d[0], dis * np.cos(degb) * d[1],
-#                                       dis * np.cos(degc) * d[2]]) if idx2 == 4 else None
-#                 cord_sorted_6.append([dis * np.cos(dega) * d[0], dis * np.cos(degb) * d[1],
-#                                       dis * np.cos(degc) * d[2]]) if idx2 == 5 else None
-#                 cord_sorted_7.append([dis * np.cos(dega) * d[0], dis * np.cos(degb) * d[1],
-#                                       dis * np.cos(degc) * d[2]]) if idx2 == 6 else None
-#                 cord_sorted_8.append([dis * np.cos(dega) * d[0], dis * np.cos(degb) * d[1],
-#                                       dis * np.cos(degc) * d[2]]) if idx2 == 7 else None
-#                 idx2 = idx2 + 1
-#         #         cord_sorted_1.sort(key=lambda c:(c[0], c[1]))
-#         #         cord_sorted_2.sort(key=lambda c:(c[0], c[1]))
-#         #         cord_sorted_3.sort(key=lambda c:(c[0], c[1]))
-#         #         cord_sorted_4.sort(key=lambda c:(c[0], c[1]))
-#         #         cord_sorted_5.sort(key=lambda c:(c[0], c[1]))
-#         #         cord_sorted_6.sort(key=lambda c:(c[0], c[1]))
-#         #         cord_sorted_7.sort(key=lambda c:(c[0], c[1]))
-#         #         cord_sorted_8.sort(key=lambda c:(c[0], c[1]))
-#         volumn_total = Integral_Approximation_Double(cord_sorted_1) + Integral_Approximation_Double(
-#             cord_sorted_2) + Integral_Approximation_Double(cord_sorted_3) + Integral_Approximation_Double(
-#             cord_sorted_4) + Integral_Approximation_Double(cord_sorted_5) + Integral_Approximation_Double(
-#             cord_sorted_6) + Integral_Approximation_Double(cord_sorted_7) + Integral_Approximation_Double(cord_sorted_8)
-#         volumn_ball = (4 / 3) * np.pi * boundary * boundary * boundary
-#         volumn_ratio = (volumn_total / volumn_ball)
-#         return strength, cord, circle, volumn_ratio
-#     else:
-#         for idx, pair in enumerate(sum_to_one_pairs):
-#             deg = (np.arctan2(pair[0], pair[1]))
-#             for i in range(4):
-#                 dis = boundary + emp_diff[pair_idx][idx * 4 + i]
-#                 x = dis * np.cos(deg)
-#                 y = dis * np.sin(deg)
-#                 deg = deg + np.pi * .5
-#                 cord.append([x, y])
-#                 circle.append([boundary * np.cos(deg), boundary * np.sin(deg)])
-#                 cord_sorted_1.append([x, y]) if i == 0 else None
-#                 cord_sorted_2.append([x, y]) if i == 1 else None
-#                 cord_sorted_3.append([x, y]) if i == 2 else None
-#                 cord_sorted_4.append([x, y]) if i == 3 else None
-#
-#         cord_sorted_1.sort(key=lambda c: (c[0]))
-#         cord_sorted_2.sort(key=lambda c: (c[0]))
-#         cord_sorted_3.sort(key=lambda c: (c[0]))
-#         cord_sorted_4.sort(key=lambda c: (c[0]))
-#         # Integral Approximation
-#         area_total = Integral_Approximation(cord_sorted_1) + Integral_Approximation(
-#             cord_sorted_2) + Integral_Approximation(cord_sorted_3) + Integral_Approximation(cord_sorted_4)
-#         area_circle = np.pi * boundary * boundary
-#         area_ratio = area_total / area_circle
-#         return strength, cord, circle, area_ratio
-
+def get_loss_in_r(all_pairs, joint_loss_pair_set, n_ways, quadrants, epsilon, loss):
+    '''
+    :param pairs: all pairs of interest
+    :param joint_loss_pair_set: all joint losses of these pairs
+    :return: loss difference of all pairs in the Rashomon set
+    '''
+    loss_rset = np.ones(joint_loss_pair_set.shape)
+    for i, e_sub in enumerate(np.arange(0.2, 1.2, 0.2)):
+        joint_effect_all_pair_e = joint_loss_pair_set[i]
+        for idx, pair in enumerate(all_pairs):
+            fij_joint = joint_effect_all_pair_e[idx]
+            # 9 paris
+            sum_to_one = find_all_sum_to_one_pairs(n_ways)
+            for idxk, sum in enumerate(sum_to_one):
+                for idxq, quadrant in enumerate(quadrants):
+                    # for each pair, find the main effect
+                    single_fis = abs(
+                        fij_joint[[idxk * 4 + quadrant]] - e_sub * epsilon - loss)
+                    # single_fis = (
+                    #     fij_joint[[idxk * 4 + quadrant]] - e_sub*self.epsilon-self.loss)
+                    loss_rset[i, idx, idxk * 4 + quadrant] = single_fis
+    return loss_rset.transpose((1, 0, 2)).reshape(len(all_pairs), -1)
 
 
 

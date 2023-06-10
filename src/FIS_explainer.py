@@ -1,6 +1,7 @@
 import numpy as np
 from PIL import Image
 import torch
+import logging
 import time
 import copy
 from feature_importance_helper import *
@@ -8,6 +9,17 @@ from feature_interaction_score_utilities import *
 import os
 ROOT_DIR = os.getcwd()
 OUTPUT_DIR = ROOT_DIR+'/../results'
+LOG_DIR = ROOT_DIR+'/../logs'
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.INFO)
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s',
+                    handlers=[logging.FileHandler("log_{}.log".format(time.strftime("%Y%m%d-%H%M%S")), mode='w'),
+                              stream_handler])
+
+
+
+
 
 class model_wrapper:
     def __init__(
@@ -69,6 +81,8 @@ class fis_explainer:
         self.quadrants = {0: [0, 0], 1: [0, 1], 2: [1, 0], 3: [1, 1]}
         self.input = input
         self.output = output
+        self.time_str = time.strftime("%Y%m%d-%H%M%S")
+        self.logger = logging.getLogger(__name__)
         if hasattr(input, 'num_features'):
             self.v_list = range(input.num_features)
             self.softmax = True
@@ -169,7 +183,7 @@ class fis_explainer:
                     loss_after, loss_before = feature_effect(mask_indices, X0=X0, y=self.output, model=self.model, shuffle_times=30, regression=self.regression)
                     joint_effects_ref.append(loss_after-loss_before)
                 except Exception:
-                    print(subset)
+                    self.logger.info('Joint effect of {} is 10000'.format(subset))
                     joint_effects_ref.append(10000)
                     pass
         return joint_effects_ref
@@ -179,10 +193,10 @@ class fis_explainer:
         :return: fis of all pairs based on the reference model
         '''
         if self.ref_joint_effects == []:
-            print('Make sure return joint effects and main effects True when constructing explainer')
+            self.logger.info('Make sure return joint effects and main effects True when constructing explainer')
             self.ref_joint_effects = self._get_ref_joint_effect()
         if self.ref_main_effects == []:
-            print('Make sure return joint effects and main effects True when constructing explainer')
+            self.logger.info('Make sure return joint effects and main effects True when constructing explainer')
             self.ref_main_effects = self._get_ref_main_effect()
         fis_ref = []
         pairs = find_all_n_way_feature_pairs(vlist=self.v_list, n_ways=self.n_ways)
@@ -207,152 +221,30 @@ class fis_explainer:
         '''
         p = len(vlist)
         d = len(np.arange(0, 1 + 0.1, delta))
-        m = np.zeros([p, d, 2])
-        fis_main = np.zeros([p, d, 2])
+        m_single_boundary_e = np.zeros([p, d, 2])
+        fis_main_single_boundary_e = np.zeros([p, d, 2])
         points_all_max = []
         points_all_min = []
-        print('Searching started...')
+        self.logger.info('Searching started...')
         for idx, vname in enumerate(vlist):
-            m_plus, points_max, fis_all_plus = greedy_search(idx, bound, loss_ref, model, X, y, direction=True,
-                                                             delta=delta, regression=regression, verbose=False)
+            m_max_single_boundary_e, points_max, fis_all_plus = greedy_search(idx, bound, loss_ref, model, X, y, direction=True,
+                                                             delta=delta, regression=regression)
             points_all_max.append(points_max)
-            m_minus, points_min, fis_all_minus = greedy_search(idx, bound, loss_ref, model, X, y, direction=False,
-                                                               delta=delta, regression=regression, verbose=False)
+            m_min_single_boundary_e, points_min, fis_all_minus = greedy_search(idx, bound, loss_ref, model, X, y, direction=False,
+                                                               delta=delta, regression=regression)
             points_all_min.append(points_min)
-            m[idx, :, 0] = m_plus
-            m[idx, :, 1] = m_minus
-            fis_main[idx, :, 0] = fis_all_plus
-            fis_main[idx, :, 1] = fis_all_minus
-        self.raw_results_dic['m'] = m
+            m_single_boundary_e[idx, :, 0] = m_max_single_boundary_e
+            m_single_boundary_e[idx, :, 1] = m_min_single_boundary_e
+            fis_main_single_boundary_e[idx, :, 0] = fis_all_plus
+            fis_main_single_boundary_e[idx, :, 1] = fis_all_minus
+        self.raw_results_dic['m_single_boundary_e'] = m_single_boundary_e
         self.raw_results_dic['points_all_max'] = points_all_max
         self.raw_results_dic['points_all_min'] = points_all_max
-        self.raw_results_dic['fis_main'] = fis_main
-        time_str = time.strftime("%Y%m%d-%H%M%S")
-        save_json(OUTPUT_DIR+'/raw-results-dic-{}.json'.format(time_str), self.raw_results_dic)
-        print('Searching done and saved to {}'.format(OUTPUT_DIR+'/raw-results-dic-{}.json').format(time_str))
-        return m, points_all_max, points_all_min, fis_main
+        self.raw_results_dic['fis_main_single_boundary_e'] = fis_main_single_boundary_e
 
-    def _get_all_m_with_t_in_range(self, points_all_max, points_all_min, epsilon):
-        '''
-        :param points_all_max: all explored points in positive direction
-        :param points_all_min: all explored points in negative direction
-        :param epsilon: dominant boundary
-        :return: an m matrix in shape [5, 11, n_features, 2] corresponding to sub-dominant boundary, e.g. 0.2 * epsilon
-        '''
-        points_all_positive_reshaped = list_flatten(points_all_max, reverse=False)
-        points_all_negative_reshaped = list_flatten(points_all_min, reverse=True)
-        p = len(np.arange(0.2, 1 + 0.2, 0.2))
-        d = len(np.arange(0.0, 1 + 0.1, 0.1))
-        n_features = len(points_all_min)
-        m_all_sub_set = np.ones([p, d, n_features, 2], dtype=np.float64)
-        for idxj, sub_boundary_rate in enumerate(np.arange(0.2, 1 + 0.2, 0.2)):
-            for idxk, j in enumerate(np.arange(0.0, 1 + 0.1, 0.1)):
-                for idxi, feature in enumerate(points_all_positive_reshaped):
-                    for idv in (feature):
-                        if idv[-1] <= j * sub_boundary_rate * epsilon:
-                            m_all_sub_set[idxj, idxk, idxi, 0] = idv[0]
-                        else:
-                            break
-                for idxi, feature in enumerate(points_all_negative_reshaped):
-                    for idv in (feature):
-                        if idv[-1] <= j * sub_boundary_rate * epsilon:
-                            m_all_sub_set[idxj, idxk, idxi, 1] = idv[0]
-                        else:
-                            break
-        #   np.transpose(1,0,2)
-        return m_all_sub_set
-
-    def _get_all_main_effects(self, m_all_sub_set, X_test, y_test, model):
-        '''
-        :param m_all_sub_set: an m matrix in shape [5, 11, n_features, 2]
-        :param model: reference model
-        :return:
-            fi_all_ratio: main effects of all features in ratio
-            fi_all_diff: main effects of all features in difference
-        '''
-        fi_all_diff = np.zeros(m_all_sub_set.shape)
-        fi_all_ratio = np.zeros(m_all_sub_set.shape)
-        for idx, sub_boundary_rate in enumerate(np.arange(0.2, 1.2, 0.2)):
-            for idxj, j in enumerate(np.arange(0, 1 + 0.1, 0.1)):
-                for i in range(len(self.v_list)):
-                    for k in range(2):
-                        X0 = X_test.copy()
-                        X0[:, i] = X0[:, i] * m_all_sub_set[idx, idxj, i, k]
-                        loss_after, loss_before = feature_effect(i, X0, y_test, model, 30, self.regression)
-                        fi_all_ratio[idx,idxj, i, k] = loss_after / loss_before
-                        fi_all_diff[idx,idxj, i, k] = loss_after - loss_before
-        return fi_all_ratio, fi_all_diff
-
-    def _get_all_joint_effects(self, m_all_sub_set):
-        '''
-        :param m_all_sub_set: an m matrix in shape [5, 11, n_features, 2]
-        :return:
-            joint_effect_all_pair_set: all joint effects of features [5, n_joint_pairs, 36] in fis, where 36 is 2^2*9
-            loss_emp_all_pair_set: all joint effects of features [5, n_joint_pairs, 36] in loss
-        '''
-        joint_effect_all_pair_set = []
-        loss_emp_all_pair_set = []
-        for m_all in m_all_sub_set:
-            m_all = m_all.transpose((1,0,2))
-            joint_effect_all_pair, loss_emp = Interaction_effect_all_pairs(self.input, self.output, self.v_list, self.n_ways, self.model, m_all, regression=self.regression)
-            joint_effect_all_pair_set.append(joint_effect_all_pair)
-            loss_emp_all_pair_set.append(loss_emp)
-        return joint_effect_all_pair_set, loss_emp_all_pair_set
-
-    def _get_fis_in_r(self, pairs, joint_effect_all_pair_set, main_effect_all_diff):
-        '''
-        :param pairs: all pairs of interest
-        :param joint_effect_all_pair_set: all joint effects of these pairs
-        :param main_effect_all_diff: all main effects of these features in the pair
-        :return: fis of all pairs in the Rashomon set
-        '''
-        quadrants = self.quadrants
-        fis_rset = np.ones(joint_effect_all_pair_set.shape)
-        for i in range(5):
-            joint_effect_all_pair_e = joint_effect_all_pair_set[i]
-            main_effect_all_diff_e = main_effect_all_diff[i]
-            main_effect_all_diff_e_reshaped = main_effect_all_diff_e.transpose((1, 0, 2))
-            for idx, pair in enumerate(pairs):
-                # fi is 40x11x2, fij_joint is 780x36
-                fi = main_effect_all_diff_e_reshaped[pair[0]]
-                fj = main_effect_all_diff_e_reshaped[pair[1]]
-                fij_joint = joint_effect_all_pair_e[idx]
-                # 9 paris
-                sum_to_one = find_all_sum_to_one_pairs(self.n_ways)
-                for idxk, sum in enumerate(sum_to_one):
-                    for idxq, quadrant in enumerate(quadrants):
-                        # for each pair, find the main effect
-                        single_fis = abs(
-                            fij_joint[[idxk * 4 + quadrant]] - fi[sum[0]][quadrants[quadrant][0]] - fj[sum[-1]][
-                                quadrants[quadrant][-1]])
-                        # single_fis = (
-                        #     fij_joint[[idxk * 4 + quadrant]] - fi[sum[0]][quadrants[quadrant][0]] - fj[sum[-1]][
-                        #         quadrants[quadrant][-1]])
-                        fis_rset[i, idx, idxk * 4 + quadrant] = single_fis
-        return fis_rset.transpose((1,0,2)).reshape(len(self.all_pairs), -1)
-    
-    def _get_loss_in_r(self, pairs, joint_loss_pair_set):
-        '''
-        :param pairs: all pairs of interest
-        :param joint_loss_pair_set: all joint losses of these pairs
-        :return: loss difference of all pairs in the Rashomon set
-        '''
-        loss_rset = np.ones(joint_loss_pair_set.shape)
-        for i, e_sub in enumerate(np.arange(0.2, 1.2, 0.2)):
-            joint_effect_all_pair_e = joint_loss_pair_set[i]
-            for idx, pair in enumerate(pairs):
-                fij_joint = joint_effect_all_pair_e[idx]
-                # 9 paris
-                sum_to_one = find_all_sum_to_one_pairs(self.n_ways)
-                for idxk, sum in enumerate(sum_to_one):
-                    for idxq, quadrant in enumerate(self.quadrants):
-                        # for each pair, find the main effect
-                        single_fis = abs(
-                            fij_joint[[idxk * 4 + quadrant]] - e_sub*self.epsilon-self.loss)
-                        # single_fis = (
-                        #     fij_joint[[idxk * 4 + quadrant]] - e_sub*self.epsilon-self.loss)
-                        loss_rset[i, idx, idxk * 4 + quadrant] = single_fis
-        return loss_rset.transpose((1,0,2)).reshape(len(self.all_pairs), -1)
+        save_json(OUTPUT_DIR+'/raw-results-dic-{}.json'.format(self.time_str), self.raw_results_dic)
+        self.logger.info('Searching done and saved to {}'.format(OUTPUT_DIR+'/raw-results-dic-{}.json').format(self.time_str))
+        return m_single_boundary_e, points_all_max, points_all_min, fis_main_single_boundary_e
 
     def explain(self):
         '''
@@ -360,25 +252,26 @@ class fis_explainer:
         '''
         self.FIS_in_Rashomon_set = {}
         self.fis_ref = self._get_ref_fis()
-        m_all_optimal, points_all_max_optimal, points_all_min_optimal, fis_all_optimal = self._explore_m_in_R(
-            self.epsilon, self.loss, self.v_list, self.model, self.input,
-            self.output, delta=0.1, regression=False)
+        if self.raw_results_dic == {}:
+            self._explore_m_in_R(
+                self.epsilon, self.loss, self.v_list, self.model, self.input,
+                self.output, delta=0.1, regression=False)
 
-        print('Start analyzing...')
-        print('Calculating all main effects of features')
-        m_all_sub_set_optimal = self._get_all_m_with_t_in_range(points_all_max_optimal,
-                                                                           points_all_min_optimal,
+        self.logger.info('Start analyzing...')
+        self.logger.info('Calculating all main effects of features')
+        m_multi_boundary_e = get_all_m_with_t_in_range(self.raw_results_dic['points_all_max'],
+                                                                           self.raw_results_dic['points_all_min'],
                                                                            self.epsilon)
-        all_main_effects_ratio, all_main_effects_diff = self._get_all_main_effects(m_all_sub_set_optimal,
+        all_main_effects_ratio, all_main_effects_diff = get_all_main_effects(m_multi_boundary_e,
                                                                                               self.input, self.output,
-                                                                                              self.model)
-        print('Calculation done')
-        print('Calculating all joint effects of feature pairs')
-        joint_effect_all_pair_set, loss_emp_all_pair_set = self._get_all_joint_effects(m_all_sub_set_optimal)
-        print('Calculation done')
-        print('Calculating FISC in the Rashomon set')
-        self.fis_in_r = self._get_fis_in_r(self.all_pairs, np.array(joint_effect_all_pair_set), all_main_effects_diff)
-        self.loss_in_r = self._get_loss_in_r(self.all_pairs, np.array(loss_emp_all_pair_set))
+                                                                                              self.model, self.v_list, self.regression)
+        self.logger.info('Calculation done')
+        self.logger.info('Calculating all joint effects of feature pairs')
+        joint_effect_all_pair_set, loss_emp_all_pair_set = get_all_joint_effects(m_multi_boundary_e, self.input, self.output, self.v_list, self.n_ways, self.model, self.regression)
+        self.logger.info('Calculation done')
+        self.logger.info('Calculating FISC in the Rashomon set')
+        self.fis_in_r = get_fis_in_r(self.all_pairs, np.array(joint_effect_all_pair_set), all_main_effects_diff, self.n_ways, self.quadrants)
+        self.loss_in_r = get_loss_in_r(self.all_pairs, np.array(loss_emp_all_pair_set), self.n_ways, self.quadrants, self.epsilon, self.loss)
         for idx, fis_each_pair in enumerate(self.fis_in_r):
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)] = {}
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['feature_idx'] = self.fis_ref[idx][0]
@@ -386,10 +279,9 @@ class fis_explainer:
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['ref'] = self.fis_ref[idx][1]
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['min'] = np.min(fis_each_pair)
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['max'] = np.max(fis_each_pair)
-        print('Calculation done')
-        time_str = time.strftime("%Y%m%d-%H%M%S")
-        save_json(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json'.format(time_str), self.FIS_in_Rashomon_set)
-        print('Explanation is saved to {}'.format(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json').format(time_str))
+        self.logger.info('Calculation done')
+        save_json(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json'.format(self.time_str), self.FIS_in_Rashomon_set)
+        self.logger.info('Explanation is saved to {}'.format(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json').format(self.time_str))
 
 
 class fis_explainer_context(fis_explainer):
