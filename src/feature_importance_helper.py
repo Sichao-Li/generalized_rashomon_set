@@ -12,39 +12,39 @@ def calculate_boundary(y_true, y_pred, epsilon_rate=0.05, regression=True):
     epsilon = loss_ref * epsilon_rate
     return loss_ref, epsilon
 
-def explore_m_in_R(bound, loss_ref, vlist, model, X, y, delta=0.01, regression=True):
-
-    '''
-    Explore the Rashomon set for the black box model by searching m within a boundary.
-        Input:
-            bound: boundary of R set, defined by epsilon
-            loss_ref: loss of reference model
-            vlist: variable list of length p
-            model: optimal model
-            X,y: data set
-            delta: the parameter splitting from 0 to 1, d=1/delta
-        Output:
-            m: possible masks for all features in R, pxdx2
-            points_all_positive, points_all_negative: recorded training process
-            fis_main: main effects of all features
-    '''
-
-    p = len(vlist)
-    d = len(np.arange(0, 1+0.1, delta))
-    m = np.zeros([p, d, 2])
-    fis_main = np.zeros([p, d, 2])
-    points_all_max = []
-    points_all_min = []
-    for idx, vname in enumerate(vlist):
-        m_plus, points_max, fis_all_plus = greedy_search(idx, bound, loss_ref, model, X, y, direction=True, delta=delta, regression=regression)
-        points_all_max.append(points_max)
-        m_minus, points_min, fis_all_minus = greedy_search(idx, bound, loss_ref, model, X, y, direction=False, delta=delta, regression=regression)
-        points_all_min.append(points_min)
-        m[idx,:,0] = m_plus
-        m[idx,:,1] = m_minus
-        fis_main[idx, :, 0] = fis_all_plus
-        fis_main[idx, :, 1] = fis_all_minus
-    return m, points_all_max, points_all_min, fis_main
+# def explore_m_in_R(bound, loss_ref, vlist, model, X, y, delta=0.01, regression=True):
+#
+#     '''
+#     Explore the Rashomon set for the black box model by searching m within a boundary.
+#         Input:
+#             bound: boundary of R set, defined by epsilon
+#             loss_ref: loss of reference model
+#             vlist: variable list of length p
+#             model: optimal model
+#             X,y: data set
+#             delta: the parameter splitting from 0 to 1, d=1/delta
+#         Output:
+#             m: possible masks for all features in R, pxdx2
+#             points_all_positive, points_all_negative: recorded training process
+#             fis_main: main effects of all features
+#     '''
+#
+#     p = len(vlist)
+#     d = len(np.arange(0, 1+0.1, delta))
+#     m = np.zeros([p, d, 2])
+#     fis_main = np.zeros([p, d, 2])
+#     points_all_max = []
+#     points_all_min = []
+#     for idx, vname in enumerate(vlist):
+#         m_plus, points_max, fis_all_plus = greedy_search(idx, bound, loss_ref, model, X, y, direction=True, delta=delta, regression=regression)
+#         points_all_max.append(points_max)
+#         m_minus, points_min, fis_all_minus = greedy_search(idx, bound, loss_ref, model, X, y, direction=False, delta=delta, regression=regression)
+#         points_all_min.append(points_min)
+#         m[idx,:,0] = m_plus
+#         m[idx,:,1] = m_minus
+#         fis_main[idx, :, 0] = fis_all_plus
+#         fis_main[idx, :, 1] = fis_all_minus
+#     return m, points_all_max, points_all_min, fis_main
 
 def greedy_search(vidx, bound, loss_ref, model, X, y, delta=0.1, direction=True, regression=True, softmax=False):
     '''

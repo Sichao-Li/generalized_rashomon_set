@@ -1,63 +1,47 @@
-# Feature interaction score cloud
+# Exploring the Cloud of Feature Interaction Scores in a Rashomon Set
 
-This repository describes datasets and codes to replicate experiments in the paper (https://arxiv.org/abs/2305.10181). We describe our data sources and code very briefly in Part 1 of this document. We give more detailed description for how to run our code in Part 2 of this document.
+
+This repository includes the implementation of the paper (https://arxiv.org/abs/2305.10181). The paper emphasizes the importance of investigating feature interactions not just in a single predictive model, but across a range of well-performing models, illustrated below.
 
 ![FIS in the Rasomon set](./data/FIn_Rset.png)
 
-## Part 1
+## Summary
 
-### Experiment 1 (Section 5.1 in the paper)
+The paper introduces a novel approach to understanding feature interactions in machine learning models. The authors argue that the study of feature interactions in a single model can miss complex relationships between features. Thus, they recommend exploring these interactions across a set of similarly accurate models, known as a Rashomon set.
 
-#### Data
-Our first experiment is based on the COMPAS model and its criminal recidivism data, which can be found at this link: https://corels.eecs.harvard.edu/corels/run.html. For your convenience, we have uploaded `compas.csv` in this repository.
+The main contributions of this paper are:
 
-#### Code
-In our paper, we do variable importance could analysis based on two model classes: logistic regression models and decision tree models.
+1. Introduction of the Feature Interaction Score (FIS) as a means to quantify the strength of feature interactions within a predictive model.
+2. Proposal of the FIS Cloud (FISC), a collection of FISs across a Rashomon set, to explore how feature interactions contribute to predictions and how these interactions can vary across models.
+3. Presentation of a non-linear example in a multilayer perceptron (MLP) to characterize the Rashomon set and FISC. This includes a search algorithm to explore FIS and to characterize FISC in a Rashomon set along with two novel visualization tools, namely Halo and Swarm plots.
 
-##### VID for Logistic Regression
+----
 
-The file `compas-logistics.R` and its companion file `ellipsoid.R` contains the code we use for the VIC analysis based on logistic regressions. For more details, please refer to Section 3 (in particular, Section 3.2.1) of our paper.
+## Requirements
+FISC is a designed based on Python language and specific libraries. Four most commonly-used are listed as follows:
 
-##### VID for Decision Trees
+* Python
+* Jupyter Notebook
+* Numpy
+* Matplotlib
 
-The file `compas-decisiontrees.R` and its companion file `findCandidates.R` contains the code we use for the VIC analysis based on decision trees. For more details, please refer to Section (in particular, Section 3.2.2) of our paper.
+FISC is a model-agnostic framework and experiments might have different requirements, depending on the data and model
+types. To implement the experiments in the paper, dependencies in [requirements.txt](.\requirements.txt) are required.
 
-### Experiment 2 (Section 5.2 in the paper)
+```python
+python -r .\requirements
+```
 
-#### Data
-Our second experiment uses the in-vehicle coupon recommendation data, which is also studied by Wang et al. (2017) at this link: https://www.researchgate.net/publication/318645502_in-vehicle_coupon_recommendation. The data can also be found there and for your convenience, we have uploaded `coupon.csv` in this repository.
+----
 
-#### Code
-We do our VIC analysis based on logistic regression models. The code can be found in the file `coupon_analysis.R`.
+## Demo
 
-### Experiment 3 (Section 5.3 in the paper)
+A toy example shows how halo plot illustrates the effect of feature interaction 
+in [toy-example.ipynb](.\demo\toy_example.ipynb), results are shown below.
+![Toy example](./demo/x1x2_simple.png)
 
-#### Data
-We have collected 1572 images of cats and dogs from ImageNet to do this experiment. We have provided the images here: https://www.dropbox.com/s/6gmai6p2siougea/dogcat-data.zip?dl=0.
+----
 
-#### Code
-We extract VGG16 features (Simonyan and Zisserman, 2004) and do VIC analysis on the features. The code we used to extract the features can be found in `feature extraction.ipynb`, which is written based on the sample code by François Chollet for the book Deep Learning with Python. 
+## Experiments
 
-We save the extracted VGG16 features for the images in `features_small.csv` together with the labels of the images in `outcomes_small.csv`. Our code for VIC analysis can be found in `vgg_vid.R`.
-
-To visualize the selected models (in `model.csv`), we use a sample image and modify it to maximize the likelihood of being identified as a dog/cat by the models. The code for the image modification can be found in `Activate Neuron.ipynb`. The code is written based on the method described in https://blog.keras.io/how-convolutional-neural-networks-see-the-world.html.
-
-## Part 2
-
-### System Requirements
-A standard computer with enough RAM to support the in-memory operations.
-
-### Software Requirements
-R and Python.
-
-The specific libraries and packages necessary for performing the code are specified in the beginning of each of the files.
-
-### Installation
-To install R, please refer to https://www.r-project.org/
-To install Python, please refer to https://www.anaconda.com/distribution/
-One would also need to have tenserflow (https://www.tensorflow.org/install/) and keras (https://keras.io/#installation) installed.
-
-### Replicate Our Results
-Once the software is installed, one just need to run the code provided in this repository (described in Part 1 of this readme file). One should expect exactly the same output as we describe in the experiment section (Section 5) in our paper.
-
-
+Code is provided to reproduce the experiments of our paper.
