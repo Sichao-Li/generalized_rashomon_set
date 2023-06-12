@@ -27,6 +27,7 @@ def Interaction_effect_calculation(feature_idx, model, m_all, X, y, regression=T
     for sum_to_one_pair in all_sum_to_one_pairs:
         possibilities = []
         for idx, i in enumerate(sum_to_one_pair):
+            print(sum_to_one_pair)
             possibilities.append(m_interest[idx, i, :])
     # for idx, i in enumerate(e_idx):
     #     possibilities.append(m_interest[idx, i, :])
@@ -149,7 +150,7 @@ def get_all_main_effects(m_multi_boundary_e, input, output, model, v_list, regre
                     fi_all_diff[idx, idxj, i, k] = loss_after - loss_before
     return fi_all_ratio, fi_all_diff
 
-def get_all_joint_effects(m_multi_boundary_e, input, output, v_list, n_ways, model, regression):
+def get_all_joint_effects(m_multi_boundary_e, input, output, v_list, n_ways, model, regression=True):
     '''
     :param m_multi_boundary_e: an m matrix in shape [5, 11, n_features, 2]
     :return:

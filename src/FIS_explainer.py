@@ -6,6 +6,7 @@ import time
 import copy
 from feature_importance_helper import *
 from feature_interaction_score_utilities import *
+from visulizer import *
 import os
 ROOT_DIR = os.getcwd()
 OUTPUT_DIR = ROOT_DIR+'/../results'
@@ -14,11 +15,8 @@ stream_handler = logging.StreamHandler()
 stream_handler.setLevel(logging.INFO)
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s',
-                    handlers=[logging.FileHandler("log_{}.log".format(time.strftime("%Y%m%d-%H%M%S")), mode='w'),
+                    handlers=[logging.FileHandler(LOG_DIR+"/log_{}.log".format(time.strftime("%Y%m%d-%H%M%S")), mode='w'),
                               stream_handler])
-
-
-
 
 
 class model_wrapper:
@@ -126,8 +124,8 @@ class fis_explainer:
         if return_ref_pairwise_effects:
             self.ref_joint_effects = self._get_ref_joint_effect()
 
-        self.raw_results_dic = {}
-        self.FIS_in_Rashomon_set = {}
+        self.FIS_main_effect_raw = {}
+        self.FIS_joint_effect_raw = {}
     def arg_checks(self, input, output):
         if (input is None) or (output is None):
             raise ValueError("Either input or output must be defined")
@@ -237,13 +235,12 @@ class fis_explainer:
             m_single_boundary_e[idx, :, 1] = m_min_single_boundary_e
             fis_main_single_boundary_e[idx, :, 0] = fis_all_plus
             fis_main_single_boundary_e[idx, :, 1] = fis_all_minus
-        self.raw_results_dic['m_single_boundary_e'] = m_single_boundary_e
-        self.raw_results_dic['points_all_max'] = points_all_max
-        self.raw_results_dic['points_all_min'] = points_all_max
-        self.raw_results_dic['fis_main_single_boundary_e'] = fis_main_single_boundary_e
-
-        save_json(OUTPUT_DIR+'/raw-results-dic-{}.json'.format(self.time_str), self.raw_results_dic)
-        self.logger.info('Searching done and saved to {}'.format(OUTPUT_DIR+'/raw-results-dic-{}.json').format(self.time_str))
+        self.FIS_main_effect_raw['m_single_boundary_e'] = m_single_boundary_e
+        self.FIS_main_effect_raw['points_all_max'] = points_all_max
+        self.FIS_main_effect_raw['points_all_min'] = points_all_min
+        self.FIS_main_effect_raw['fis_main_single_boundary_e'] = fis_main_single_boundary_e
+        save_json(OUTPUT_DIR +'/FIS-main-effect-raw-{}.json'.format(self.time_str), self.FIS_main_effect_raw)
+        self.logger.info('Searching done and saved to {}'.format(OUTPUT_DIR+'/FIS-main-effect-raw-{}.json').format(self.time_str))
         return m_single_boundary_e, points_all_max, points_all_min, fis_main_single_boundary_e
 
     def explain(self):
@@ -251,27 +248,32 @@ class fis_explainer:
         Find the range of FIS for each pair of features in the Rashomon set
         '''
         self.FIS_in_Rashomon_set = {}
+        self.FIS_joint_effect_raw = {}
         self.fis_ref = self._get_ref_fis()
-        if self.raw_results_dic == {}:
+        if self.FIS_main_effect_raw == {}:
             self._explore_m_in_R(
                 self.epsilon, self.loss, self.v_list, self.model, self.input,
-                self.output, delta=0.1, regression=False)
+                self.output, delta=0.1, regression=self.regression)
 
         self.logger.info('Start analyzing...')
         self.logger.info('Calculating all main effects of features')
-        m_multi_boundary_e = get_all_m_with_t_in_range(self.raw_results_dic['points_all_max'],
-                                                                           self.raw_results_dic['points_all_min'],
-                                                                           self.epsilon)
-        all_main_effects_ratio, all_main_effects_diff = get_all_main_effects(m_multi_boundary_e,
+        m_multi_boundary_e = get_all_m_with_t_in_range(self.FIS_main_effect_raw['points_all_max'],
+                                                            self.FIS_main_effect_raw['points_all_min'],
+                                                            self.epsilon)
+
+        self.all_main_effects_ratio, self.all_main_effects_diff = get_all_main_effects(m_multi_boundary_e,
                                                                                               self.input, self.output,
                                                                                               self.model, self.v_list, self.regression)
         self.logger.info('Calculation done')
         self.logger.info('Calculating all joint effects of feature pairs')
-        joint_effect_all_pair_set, loss_emp_all_pair_set = get_all_joint_effects(m_multi_boundary_e, self.input, self.output, self.v_list, self.n_ways, self.model, self.regression)
+        joint_effect_all_pair_set, loss_emp_all_pair_set = get_all_joint_effects(m_multi_boundary_e, self.input, self.output, self.v_list, self.n_ways, self.model, regression=self.regression)
+        self.FIS_joint_effect_raw['joint_effect_all_pair_set'] = np.array(joint_effect_all_pair_set)
+        self.FIS_joint_effect_raw['loss_emp_all_pair_set'] = np.array(loss_emp_all_pair_set)
+        self.FIS_joint_effect_raw['m_multi_boundary_e'] = m_multi_boundary_e
         self.logger.info('Calculation done')
         self.logger.info('Calculating FISC in the Rashomon set')
-        self.fis_in_r = get_fis_in_r(self.all_pairs, np.array(joint_effect_all_pair_set), all_main_effects_diff, self.n_ways, self.quadrants)
-        self.loss_in_r = get_loss_in_r(self.all_pairs, np.array(loss_emp_all_pair_set), self.n_ways, self.quadrants, self.epsilon, self.loss)
+        self.fis_in_r = get_fis_in_r(self.all_pairs, self.FIS_joint_effect_raw['joint_effect_all_pair_set'], self.all_main_effects_diff, self.n_ways, self.quadrants)
+        self.loss_in_r = get_loss_in_r(self.all_pairs, self.FIS_joint_effect_raw['loss_emp_all_pair_set'], self.n_ways, self.quadrants, self.epsilon, self.loss)
         for idx, fis_each_pair in enumerate(self.fis_in_r):
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)] = {}
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['feature_idx'] = self.fis_ref[idx][0]
@@ -280,9 +282,131 @@ class fis_explainer:
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['min'] = np.min(fis_each_pair)
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['max'] = np.max(fis_each_pair)
         self.logger.info('Calculation done')
+        save_json(OUTPUT_DIR + '/FIS-joint-effect-raw-{}.json'.format(self.time_str), self.FIS_joint_effect_raw)
         save_json(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json'.format(self.time_str), self.FIS_in_Rashomon_set)
         self.logger.info('Explanation is saved to {}'.format(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json').format(self.time_str))
 
+    def swarm_plot(self, interest_of_pairs, vname=None, plot_all=False,
+                   threshold=None, boxplot=False, save=False, suffix=None):
+        '''
+        :param interest_of_pairs: all pairs of interest
+        :param vname: variable name list
+        :param plot_all: if plot all pairs of features
+        :param threshold: if there is a threshold to decide fis
+        :param boxplot: if plot boxplot
+        :param save: if save the plot
+        '''
+
+        FI_name = []
+        for i in self.all_pairs:
+            if vname is None:
+                name = str(i[0]) + ' vs ' + str(i[1])
+            else:
+
+                name = str(vname[i[0]]) + ' vs ' + str(vname[i[1]])
+            FI_name.append(name)
+        fis_in_r_df = pd.DataFrame(self.fis_in_r)
+        loss_in_r_df = pd.DataFrame(self.loss_in_r)
+        fis_ref_l = [i[-1] for i in self.fis_ref]
+        fis_ref_l_df = pd.DataFrame(fis_ref_l)
+        fis_in_r_df['Interaction pairs'] = FI_name
+        loss_in_r_df['Interaction pairs'] = FI_name
+        fis_ref_l_df['Interaction pairs'] = FI_name
+
+        list_idx = []
+        for pair in interest_of_pairs:
+            list_idx.append(self.all_pairs.index(pair))
+
+        if plot_all:
+            fis_in_r_df_long = fis_in_r_df.melt(id_vars='Interaction pairs', var_name='m_value',
+                                                value_name='FIS')
+            loss_in_r_df_long = loss_in_r_df.melt(id_vars='Interaction pairs', var_name='m_value',
+                                                  value_name='Loss')
+            fis_ref_l_df_long = fis_ref_l_df.melt(id_vars='Interaction pairs', var_name='m_value',
+                                                  value_name='FIS')
+
+        else:
+            fis_in_r_df_long = fis_in_r_df.loc[list_idx,].melt(id_vars='Interaction pairs', var_name='m_value',
+                                                               value_name='FIS')
+            loss_in_r_df_long = loss_in_r_df.loc[list_idx,].melt(id_vars='Interaction pairs', var_name='m_value',
+                                                                 value_name='Loss')
+            fis_ref_l_df_long = fis_ref_l_df.loc[list_idx,].melt(id_vars='Interaction pairs', var_name='m_value',
+                                                                 value_name='FIS')
+
+        fis_in_r_df_long['Loss'] = loss_in_r_df_long['Loss']
+        fis_ref_l_df_long['Loss'] = 0
+        sns.reset_defaults()
+        sns.set(rc={'figure.figsize': (10, 10)})
+        cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["#1E88E5", '#7C52FF', "#ff0d57"], N=180)
+        norm = plt.Normalize(fis_in_r_df_long['Loss'].min(), self.loss + self.epsilon)
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        sns.set_style("whitegrid")
+        ax2 = sns.swarmplot(data=fis_in_r_df_long, x='FIS', y='Interaction pairs', hue='Loss', palette=cmap, size=3,
+                            zorder=0)
+
+        ax = sns.pointplot(data=fis_ref_l_df_long, x='FIS', y='Interaction pairs', linestyles='', markers='*',
+                           color='orange', scale=1.2, ax=ax2)
+        if boxplot:
+            sns.boxplot(x="FIS", y='Interaction pairs', data=fis_in_r_df_long,
+                        showcaps=False, boxprops={'facecolor': 'None'},
+                        showfliers=False, whiskerprops={'linewidth': 0}, ax=ax)
+        ax.get_legend().remove()
+        ax.tick_params(axis='both', which='major', labelsize=18)
+        ax.set_xlabel('FIS', fontsize=18)
+        ax.set_ylabel('Interaction Pairs', fontsize=18)
+        ax.figure.colorbar(sm, fraction=0.046, pad=0.04)
+        for location in ['left', 'right', 'top', 'bottom']:
+            ax.spines[location].set_linewidth(1)
+            ax.spines[location].set_color('black')
+        if threshold is not None:
+            plt.axvline(threshold, color='black')
+        if save:
+            plt.savefig(OUTPUT_DIR+'/swarm_plot_{}.png'.format(suffix), bbox_inches='tight')
+        plt.show()
+
+    def halo_plot(self, pair_idx, save=False, path=''):
+        '''
+         :param pair_idx: the pair of interest
+         :param save: if save the plot
+         :param path: the saving path
+         '''
+        fig = plt.figure(figsize=[6,6])
+        ax = fig.add_subplot(111)
+        lightness = [0.8, 0.7, 0.6, 0.5, 0.4]
+        # e = [3.3, 3.6, 3.8, 4.1, 4.4]
+        for idx, sub_boundary_rate in enumerate(np.arange(0.2, 1.2, 0.2)):
+            # feature_idx = feature_idx_to_pair_idx(self.all_pairs, pair_idx=pair_idx)
+            # m_all = self.FIS_joint_effect_raw['m_multi_boundary_e'][idx].transpose((1,0,2))
+            # _, loss_emp = Interaction_effect_calculation(feature_idx, self.model, m_all, self.input, self.output, regression=self.regression)
+            loss_emp = self.FIS_joint_effect_raw['loss_emp_all_pair_set'][idx][pair_idx, :]
+            circle_emp, circle_exp = pairwise_vis_loss((loss_emp-self.loss), self.epsilon*(sub_boundary_rate))
+            circle_emp.sort(key=lambda c:np.arctan2(c[0], c[1]))
+            circle_emp.append(circle_emp[0])
+            circle_exp.sort(key=lambda c:np.arctan2(c[0], c[1]))
+            circle_exp.append(circle_exp[0])
+            ax.grid(False)
+            ax.tick_params(axis='both', which='major', labelsize=18)
+            ax.set_xticks([])
+            ax.plot(np.array(circle_emp)[:,0], np.array(circle_emp)[:,1],color=colors_vis(0, lightness[idx]), marker='o', linewidth=3, markersize=2, label='emperial interaction')
+            ax.plot(np.array(circle_exp)[:,0], np.array(circle_exp)[:,1],color=colors_vis(1, lightness[idx]), linewidth=3, markersize=1, label='expected interaction')
+            for location in ['left', 'right', 'top', 'bottom']:
+                ax.spines[location].set_linewidth(1)
+                ax.spines[location].set_color('black')
+        if save:
+            plt.savefig(path, bbox_inches='tight')
+        plt.show()
+
+    def halo_plot_3D(self, pair_idx, save=False, path=''):
+        '''
+         :param pair_idx: the pair of interest
+         :param save: if save the plot
+         :param path: the saving path
+         '''
+        _, loss_emp_single_pair = Interaction_effect_calculation(pair_idx, self.model, self.FIS_joint_effect_raw['m_multi_boundary_e'][-1].transpose((1, 0, 2)),
+        self.input, self.output, regression=self.regression)
+        ball_exp, ball_emp = high_order_vis_loss(loss_emp_single_pair, self.epsilon, 3, self.loss)
+        fis_vis_3D(ball_exp, ball_emp, save=save, path=path)
 
 class fis_explainer_context(fis_explainer):
     '''
