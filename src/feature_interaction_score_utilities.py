@@ -27,7 +27,6 @@ def Interaction_effect_calculation(feature_idx, model, m_all, X, y, regression=T
     for sum_to_one_pair in all_sum_to_one_pairs:
         possibilities = []
         for idx, i in enumerate(sum_to_one_pair):
-            print(sum_to_one_pair)
             possibilities.append(m_interest[idx, i, :])
     # for idx, i in enumerate(e_idx):
     #     possibilities.append(m_interest[idx, i, :])
