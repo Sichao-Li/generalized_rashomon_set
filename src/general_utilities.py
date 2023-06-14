@@ -103,7 +103,7 @@ def MDS(vt_l, n_features_in, n_features_out=2):
 def loss_shuffle(model, X0, vidx, y, times=30, regression=True):
 #     shuffle to evaluate the feature importance
     loss_all = []
-    if isinstance(vidx, int):
+    if np.array(vidx).ndim == 0:
         vidx = [vidx]
     for i in range(times):
         for idx in vidx:

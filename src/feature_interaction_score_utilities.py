@@ -39,8 +39,6 @@ def Interaction_effect_calculation(feature_idx, model, m_all, X, y, regression=T
     return joint_effect_all, loss_emp
 
 
-
-# @jit(target_backend='cuda')
 def Interaction_effect_all_pairs(X, y, vlist, n_ways, model, m_all, regression=True):
     '''
     Calculate the feature interaction effect for all pairs.
@@ -180,7 +178,7 @@ def get_fis_in_r(all_pairs, joint_effect_all_pair_set, main_effect_all_diff, n_w
         main_effect_all_diff_e = main_effect_all_diff[i]
         main_effect_all_diff_e_reshaped = main_effect_all_diff_e.transpose((1, 0, 2))
         for idx, pair in enumerate(all_pairs):
-            logger.info('Calculating pair {} with index {} and {}'.format(idx, pair[0], pair[1]))
+            logger.info('Calculating :pair {} with index {} and {}'.format(idx, pair[0], pair[1]))
             # fi is 40x11x2, fij_joint is 780x36
             fi = main_effect_all_diff_e_reshaped[pair[0]]
             fj = main_effect_all_diff_e_reshaped[pair[1]]

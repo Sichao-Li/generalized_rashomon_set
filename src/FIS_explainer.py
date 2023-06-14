@@ -120,6 +120,11 @@ class fis_explainer:
         self.FIS_main_effect_raw = {}
         self.FIS_main_effect_processed = {}
         self.FIS_joint_effect_raw = {}
+        self.logger.info('Reference model analysis')
+        self.logger.info('Calculating main effect, joint effect and FIS for the reference model')
+        self.ref_fis = self._get_ref_fis()
+        self.logger.info('FIS calculated and can be called by explainer.ref_fis')
+        self.logger.info('Calculation done')
     def arg_checks(self, input, output):
         if (input is None) or (output is None):
             raise ValueError("Either input or output must be defined")
@@ -162,8 +167,10 @@ class fis_explainer:
         joint_effects_ref = []
         all_n_way_feature_subsets = find_all_n_way_feature_pairs(vlist=self.v_list, n_ways=self.n_ways)
         for subset in all_n_way_feature_subsets:
-            if subset[0] != 0:
-                subset = np.nonzero(np.in1d(self.v_list, subset))[0]
+            # TODO: check if the chunk is useful
+            # if subset[0] != 0:
+            #     subset = np.nonzero(np.in1d(self.v_list, subset))[0]
+            #     print(subset)
             if not self.softmax:
                 X0 = self.input.copy()
                 loss_after, loss_before = feature_effect(subset, X0=X0, y=self.output, model=self.model, shuffle_times=30, regression=self.regression)
@@ -184,8 +191,13 @@ class fis_explainer:
         '''
         :return: fis of all pairs based on the reference model
         '''
-        self.ref_joint_effects = self._get_ref_joint_effect()
         self.ref_main_effects = self._get_ref_main_effect()
+        self.logger.info('main effects calculated and can be called by explainer.ref_main_effects')
+        unimportant_feature_indices = np.where(np.array(self.ref_main_effects) == 0)[0]
+        self.logger.info('features with importance 0 are excluded, including {}'.format(unimportant_feature_indices))
+        self.v_list = np.array(list(set(unimportant_feature_indices) ^ set(self.v_list)))
+        self.ref_joint_effects = self._get_ref_joint_effect()
+        self.logger.info('joint effects calculated and can be called by explainer.ref_joint_effects')
         fis_ref = []
         pairs = find_all_n_way_feature_pairs(vlist=self.v_list, n_ways=self.n_ways)
         for idx, i in enumerate(pairs):
@@ -213,12 +225,12 @@ class fis_explainer:
         fis_main_single_boundary_e = np.zeros([p, d, 2])
         points_all_max = []
         points_all_min = []
-        self.logger.info('Searching started...')
+        self.logger.info('Searching models in the Rashomon set ...')
         for idx, vname in enumerate(vlist):
-            m_max_single_boundary_e, points_max, fis_all_plus = greedy_search(idx, bound, loss_ref, model, X, y, direction=True,
+            m_max_single_boundary_e, points_max, fis_all_plus = greedy_search(vname, bound, loss_ref, model, X, y, direction=True,
                                                              delta=delta, regression=regression)
             points_all_max.append(points_max)
-            m_min_single_boundary_e, points_min, fis_all_minus = greedy_search(idx, bound, loss_ref, model, X, y, direction=False,
+            m_min_single_boundary_e, points_min, fis_all_minus = greedy_search(vname, bound, loss_ref, model, X, y, direction=False,
                                                                delta=delta, regression=regression)
             points_all_min.append(points_min)
             m_single_boundary_e[idx, :, 0] = m_max_single_boundary_e
@@ -237,16 +249,13 @@ class fis_explainer:
         '''
         Find the range of FIS for each pair of features in the Rashomon set
         '''
+        self.logger.info('Start analyzing...')
         self.FIS_in_Rashomon_set = {}
         self.FIS_joint_effect_raw = {}
         if self.FIS_main_effect_raw == {}:
             self._explore_m_in_R(
                 self.epsilon, self.loss, self.v_list, self.model, self.input,
                 self.output, delta=0.1, regression=self.regression)
-        self.logger.info('Start analyzing...')
-        self.logger.info('Calculating main effect, joint effect and FIS for the reference model')
-        self.fis_ref = self._get_ref_fis()
-        self.logger.info('Calculation done')
         self.logger.info('Calculating all main effects of features for all models in the Rashomon set')
         m_multi_boundary_e = get_all_m_with_t_in_range(self.FIS_main_effect_raw['points_all_max'],
                                                             self.FIS_main_effect_raw['points_all_min'],
@@ -267,14 +276,14 @@ class fis_explainer:
         self.FIS_joint_effect_raw['loss_emp_all_pair_set'] = np.array(loss_emp_all_pair_set)
         # self.FIS_joint_effect_raw['m_multi_boundary_e'] = m_multi_boundary_e
         self.logger.info('Calculation done')
-        self.logger.info('Calculating FISC in the Rashomon set')
+        self.logger.info('Calculating FISC in the Rashomon set for all models in the Rashomon set')
         self.fis_in_r = get_fis_in_r(self.all_pairs, self.FIS_joint_effect_raw['joint_effect_all_pair_set'], all_main_effects_diff, self.n_ways, self.quadrants)
         self.loss_in_r = get_loss_in_r(self.all_pairs, self.FIS_joint_effect_raw['loss_emp_all_pair_set'], self.n_ways, self.quadrants, self.epsilon, self.loss)
         for idx, fis_each_pair in enumerate(self.fis_in_r):
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)] = {}
-            self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['feature_idx'] = self.fis_ref[idx][0]
+            self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['feature_idx'] = self.ref_fis[idx][0]
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results'] = {}
-            self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['ref'] = self.fis_ref[idx][1]
+            self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['ref'] = self.ref_fis[idx][1]
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['min'] = np.min(fis_each_pair)
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['max'] = np.max(fis_each_pair)
         self.logger.info('Calculation done')
@@ -303,7 +312,7 @@ class fis_explainer:
             FI_name.append(name)
         fis_in_r_df = pd.DataFrame(self.fis_in_r)
         loss_in_r_df = pd.DataFrame(self.loss_in_r)
-        fis_ref_l = [i[-1] for i in self.fis_ref]
+        fis_ref_l = [i[-1] for i in self.ref_fis]
         fis_ref_l_df = pd.DataFrame(fis_ref_l)
         fis_in_r_df['Interaction pairs'] = FI_name
         loss_in_r_df['Interaction pairs'] = FI_name
