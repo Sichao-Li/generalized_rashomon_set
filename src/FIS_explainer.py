@@ -118,14 +118,11 @@ class fis_explainer:
         self.epsilon = self.loss*epsilon_rate
         self.all_pairs = find_all_n_way_feature_pairs((self.v_list), n_ways=n_ways)
         # self.m_all, self.points_all_positive, self.points_all_negative, self.main_effects = self.explore_m_in_R(self.epsilon, self.loss, range(len(self.input[-1])), model, input, output, delta=0.1, regression=self.regression)
-        self.FIS_main_effect_raw = {}
-        self.FIS_main_effect_processed = {}
-        self.FIS_joint_effect_raw = {}
-        self.logger.info('Reference model analysis')
-        self.logger.info('Calculating main effect, joint effect and FIS for the reference model')
-        self.ref_fis = self._get_ref_fis()
-        self.logger.info('FIS calculated and can be called by explainer.ref_fis')
-        self.logger.info('Calculation done')
+        self.rset_main_effect_raw = {}
+        self.rset_main_effect_processed = {}
+        self.ref_analysis={}
+        self.rset_joint_effect_raw = {}
+
     def arg_checks(self, input, output):
         if (input is None) or (output is None):
             raise ValueError("Either input or output must be defined")
@@ -192,18 +189,18 @@ class fis_explainer:
         '''
         :return: fis of all pairs based on the reference model
         '''
-        self.ref_main_effects = self._get_ref_main_effect()
-        self.logger.info('main effects calculated and can be called by explainer.ref_main_effects')
-        unimportant_feature_indices = np.where(np.array(self.ref_main_effects) == 0)[0]
+        self.ref_analysis['ref_main_effects'] = self._get_ref_main_effect()
+        self.logger.info('main effects calculated and can be called by explainer.ref_analysis[''ref_main_effects'']')
+        unimportant_feature_indices = np.where(np.array(self.ref_analysis['ref_main_effects']) == 0)[0]
         self.logger.info('features with importance 0 are excluded, including {}'.format(unimportant_feature_indices))
         self.v_list = np.array(list(set(unimportant_feature_indices) ^ set(self.v_list)))
         self.all_pairs = find_all_n_way_feature_pairs((self.v_list), n_ways=self.n_ways)
-        self.ref_joint_effects = self._get_ref_joint_effect()
+        self.ref_analysis['ref_joint_effects'] = self._get_ref_joint_effect()
         self.logger.info('joint effects calculated and can be called by explainer.ref_joint_effects')
         fis_ref = []
         pairs = find_all_n_way_feature_pairs(vlist=self.v_list, n_ways=self.n_ways)
         for idx, i in enumerate(pairs):
-            fis_ref.append((i, abs(self.ref_joint_effects[idx] - self.ref_main_effects[i[0]] - self.ref_main_effects[i[1]])))
+            fis_ref.append((i, abs(self.ref_analysis['ref_joint_effects'][idx] - self.ref_analysis['ref_main_effects'][i[0]] - self.ref_analysis['ref_main_effects'][i[1]])))
         return fis_ref
     def _explore_m_in_R(self, bound, loss_ref, vlist, model, X, y, delta=0.01, regression=True):
 
@@ -239,58 +236,68 @@ class fis_explainer:
             m_single_boundary_e[idx, :, 1] = m_min_single_boundary_e
             fis_main_single_boundary_e[idx, :, 0] = fis_all_plus
             fis_main_single_boundary_e[idx, :, 1] = fis_all_minus
-        self.FIS_main_effect_raw['m_single_boundary_e'] = m_single_boundary_e
-        self.FIS_main_effect_raw['points_all_max'] = points_all_max
-        self.FIS_main_effect_raw['points_all_min'] = points_all_min
-        self.FIS_main_effect_raw['fis_main_single_boundary_e'] = fis_main_single_boundary_e
-        save_json(OUTPUT_DIR +'/FIS-main-effect-raw-{}.json'.format(self.time_str), self.FIS_main_effect_raw)
+        self.rset_main_effect_raw['m_single_boundary_e'] = m_single_boundary_e
+        self.rset_main_effect_raw['points_all_max'] = points_all_max
+        self.rset_main_effect_raw['points_all_min'] = points_all_min
+        self.rset_main_effect_raw['fis_main_single_boundary_e'] = fis_main_single_boundary_e
+        save_json(OUTPUT_DIR +'/FIS-main-effect-raw-{}.json'.format(self.time_str), self.rset_main_effect_raw)
         self.logger.info('Searching done and saved to {}'.format(OUTPUT_DIR+'/FIS-main-effect-raw-{}.json').format(self.time_str))
         return m_single_boundary_e, points_all_max, points_all_min, fis_main_single_boundary_e
 
-    def explain(self):
+    def ref_explain(self):
+        # return reference model analysis
+        self.logger.info('Reference model analysis')
+        self.logger.info('Calculating main effect, joint effect and FIS for the reference model')
+        self.ref_analysis['ref_fis'] = self._get_ref_fis()
+        self.logger.info('FIS calculated and can be called by explainer.ref_analysis')
+        self.logger.info('Calculation done')
+        save_json(OUTPUT_DIR+'/Ref-in-Rashomon-set-analysis-{}.json'.format(self.time_str), self.ref_analysis)
+
+    def rset_explain(self):
         '''
         Find the range of FIS for each pair of features in the Rashomon set
         '''
-        self.logger.info('Start analyzing...')
+        self.logger.info('Start exploring the possible models')
         self.FIS_in_Rashomon_set = {}
-        self.FIS_joint_effect_raw = {}
-        if self.FIS_main_effect_raw == {}:
+        self.rset_joint_effect_raw = {}
+        if self.rset_main_effect_raw == {}:
             self._explore_m_in_R(
                 self.epsilon, self.loss, self.v_list, self.model, self.input,
                 self.output, delta=0.1, regression=self.regression)
-        self.logger.info('Calculating all main effects of features for all models in the Rashomon set')
-        m_multi_boundary_e = get_all_m_with_t_in_range(self.FIS_main_effect_raw['points_all_max'],
-                                                            self.FIS_main_effect_raw['points_all_min'],
-                                                            self.epsilon)
+        self.logger.info('Calculating all main effects of features {} for all models in the Rashomon set'.format(self.v_list))
+        m_multi_boundary_e = get_all_m_with_t_in_range(self.rset_main_effect_raw['points_all_max'],
+                                                       self.rset_main_effect_raw['points_all_min'],
+                                                       self.epsilon)
 
         all_main_effects_ratio, all_main_effects_diff = get_all_main_effects(m_multi_boundary_e,
                                                                                               self.input, self.output,
                                                                                               self.model, self.v_list, self.regression)
-
         self.logger.info('Calculation done')
-        self.FIS_main_effect_processed['m_multi_boundary_e'] = m_multi_boundary_e
-        self.FIS_main_effect_processed['all_main_effects_ratio'] = all_main_effects_ratio
-        self.FIS_main_effect_processed['all_main_effects_diff'] = all_main_effects_diff
-        save_json(OUTPUT_DIR + '/FIS-main-effect-processed-{}.json'.format(self.time_str), self.FIS_main_effect_processed)
+        self.rset_main_effect_processed['m_multi_boundary_e'] = m_multi_boundary_e
+        self.rset_main_effect_processed['all_main_effects_ratio'] = all_main_effects_ratio
+        self.rset_main_effect_processed['all_main_effects_diff'] = all_main_effects_diff
+        save_json(OUTPUT_DIR + '/FIS-main-effect-processed-{}.json'.format(self.time_str), self.rset_main_effect_processed)
+
+
         self.logger.info('Calculating all joint effects of feature in pairs {}'. format(len(self.all_pairs)))
         joint_effect_all_pair_set, loss_emp_all_pair_set = get_all_joint_effects(m_multi_boundary_e, self.input, self.output, self.v_list, self.n_ways, self.model, regression=self.regression)
-        self.FIS_joint_effect_raw['joint_effect_all_pair_set'] = np.array(joint_effect_all_pair_set)
-        self.FIS_joint_effect_raw['loss_emp_all_pair_set'] = np.array(loss_emp_all_pair_set)
-        # self.FIS_joint_effect_raw['m_multi_boundary_e'] = m_multi_boundary_e
+        self.rset_joint_effect_raw['joint_effect_all_pair_set'] = np.array(joint_effect_all_pair_set)
+        self.rset_joint_effect_raw['loss_emp_all_pair_set'] = np.array(loss_emp_all_pair_set)
+        # self.rset_joint_effect_raw['m_multi_boundary_e'] = m_multi_boundary_e
         self.logger.info('Calculation done')
         self.logger.info('Calculating FISC in the Rashomon set for all models in the Rashomon set')
 
-        self.fis_in_r = get_fis_in_r(self.all_pairs, self.FIS_joint_effect_raw['joint_effect_all_pair_set'], all_main_effects_diff, self.n_ways, self.quadrants)
-        self.loss_in_r = get_loss_in_r(self.all_pairs, self.FIS_joint_effect_raw['loss_emp_all_pair_set'], self.n_ways, self.quadrants, self.epsilon, self.loss)
+        self.fis_in_r = get_fis_in_r(self.all_pairs, self.rset_joint_effect_raw['joint_effect_all_pair_set'], all_main_effects_diff, self.n_ways, self.quadrants)
+        self.loss_in_r = get_loss_in_r(self.all_pairs, self.rset_joint_effect_raw['loss_emp_all_pair_set'], self.n_ways, self.quadrants, self.epsilon, self.loss)
         for idx, fis_each_pair in enumerate(self.fis_in_r):
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)] = {}
-            self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['feature_idx'] = self.ref_fis[idx][0]
+            self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['feature_idx'] = self.ref_analysis['ref_fis'][idx][0]
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results'] = {}
-            self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['ref'] = self.ref_fis[idx][1]
+            self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['ref'] = self.ref_analysis['ref_fis'][idx][1]
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['min'] = np.min(fis_each_pair)
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['max'] = np.max(fis_each_pair)
         self.logger.info('Calculation done')
-        save_json(OUTPUT_DIR + '/FIS-joint-effect-raw-{}.json'.format(self.time_str), self.FIS_joint_effect_raw)
+        save_json(OUTPUT_DIR + '/FIS-joint-effect-raw-{}.json'.format(self.time_str), self.rset_joint_effect_raw)
         save_json(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json'.format(self.time_str), self.FIS_in_Rashomon_set)
         self.logger.info('Explanation is saved to {}'.format(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json').format(self.time_str))
 
@@ -315,7 +322,7 @@ class fis_explainer:
             FI_name.append(name)
         fis_in_r_df = pd.DataFrame(self.fis_in_r)
         loss_in_r_df = pd.DataFrame(self.loss_in_r)
-        fis_ref_l = [i[-1] for i in self.ref_fis]
+        fis_ref_l = [i[-1] for i in self.ref_analysis['ref_fis']]
         fis_ref_l_df = pd.DataFrame(fis_ref_l)
         fis_in_r_df['Interaction pairs'] = FI_name
         loss_in_r_df['Interaction pairs'] = FI_name
@@ -385,9 +392,9 @@ class fis_explainer:
         # e = [3.3, 3.6, 3.8, 4.1, 4.4]
         for idx, sub_boundary_rate in enumerate(np.arange(0.2, 1.2, 0.2)):
             # feature_idx = feature_idx_to_pair_idx(self.all_pairs, pair_idx=pair_idx)
-            # m_all = self.FIS_joint_effect_raw['m_multi_boundary_e'][idx].transpose((1,0,2))
+            # m_all = self.rset_joint_effect_raw['m_multi_boundary_e'][idx].transpose((1,0,2))
             # _, loss_emp = Interaction_effect_calculation(feature_idx, self.model, m_all, self.input, self.output, regression=self.regression)
-            loss_emp = self.FIS_joint_effect_raw['loss_emp_all_pair_set'][idx][pair_idx, :]
+            loss_emp = self.rset_joint_effect_raw['loss_emp_all_pair_set'][idx][pair_idx, :]
             circle_emp, circle_exp = pairwise_vis_loss((loss_emp-self.loss), self.epsilon*(sub_boundary_rate))
             circle_emp.sort(key=lambda c:np.arctan2(c[0], c[1]))
             circle_emp.append(circle_emp[0])
@@ -411,8 +418,8 @@ class fis_explainer:
          :param save: if save the plot
          :param path: the saving path
          '''
-        _, loss_emp_single_pair = Interaction_effect_calculation(pair_idx, self.model, self.FIS_main_effect_processed['m_multi_boundary_e'][-1].transpose((1, 0, 2)),
-        self.input, self.output, regression=self.regression)
+        _, loss_emp_single_pair = Interaction_effect_calculation(pair_idx, self.model, self.rset_main_effect_processed['m_multi_boundary_e'][-1].transpose((1, 0, 2)),
+                                                                 self.input, self.output, regression=self.regression)
         ball_exp, ball_emp = high_order_vis_loss(loss_emp_single_pair, self.epsilon, 3, self.loss)
         fis_vis_3D(ball_exp, ball_emp, save=save, path=path)
 
@@ -444,7 +451,5 @@ class fis_explainer_context(fis_explainer):
         return joint_effects_ref
 
 
-
-
-
+    # TODO: Swarm plot for MR
 

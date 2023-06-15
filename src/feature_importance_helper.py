@@ -121,7 +121,7 @@ def greedy_search(vidx, bound, loss_ref, model, X, y, delta=0.1, direction=True,
             else:
                 lr=lr*0.1
                 count = count+1
-            logger.info('Feature {} at boundary {} * epsilon with m {} achieves loss {}'.format(vidx, i, m, mydiff))
+            logger.info('Feature {} at boundary {} * epsilon with m {} achieves loss difference {}'.format(vidx, i, m, mydiff))
         points_all.append(points)
         m_all.append(m)
         # calculate fis based on m

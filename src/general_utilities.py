@@ -216,3 +216,8 @@ def default(obj):
 def save_json(path, results):
     with open(path, 'w') as f:
         json.dump(results, f, default=default)
+
+def load_json(path):
+    with open(path, "r") as f:
+        json_data = json.load(f)
+    return json_data
