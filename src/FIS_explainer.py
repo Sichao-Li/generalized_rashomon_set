@@ -266,31 +266,34 @@ class fis_explainer:
                 self.output, delta=0.1, regression=self.regression)
         else:
             self.logger.info('Already exists, skip')
-
         self.logger.info('Calculating all main effects of features {} for all models in the Rashomon set'.format(self.v_list))
-        m_multi_boundary_e, _ = get_all_m_with_t_in_range(self.rset_main_effect_raw['points_all_max'],
-                                                       self.rset_main_effect_raw['points_all_min'],
-                                                       self.epsilon)
+        if self.rset_main_effect_processed == {}:
+            m_multi_boundary_e, loss_diff_multi_boundary_e = get_all_m_with_t_in_range(self.rset_main_effect_raw['points_all_max'],
+                                                           self.rset_main_effect_raw['points_all_min'],
+                                                           self.epsilon)
+            all_main_effects_ratio, all_main_effects_diff = get_all_main_effects(m_multi_boundary_e,
+                                                                                                  self.input, self.output,
+                                                                                                  self.model, self.v_list, self.regression)
+            self.logger.info('Calculation done')
+            self.rset_main_effect_processed['m_multi_boundary_e'] = m_multi_boundary_e
+            self.rset_main_effect_processed['all_main_effects_ratio'] = all_main_effects_ratio
+            self.rset_main_effect_processed['all_main_effects_diff'] = all_main_effects_diff
+            self.rset_main_effect_processed['loss_diff_multi_boundary_e'] = loss_diff_multi_boundary_e
+            save_json(OUTPUT_DIR + '/FIS-main-effect-processed-{}.json'.format(self.time_str), self.rset_main_effect_processed)
+        else:
+            self.logger.info('Already exists, skip')
+        if self.rset_joint_effect_raw == {}:
+            self.logger.info('Calculating all joint effects of feature in pairs {}'. format(len(self.all_pairs)))
+            joint_effect_all_pair_set, loss_emp_all_pair_set = get_all_joint_effects(self.rset_main_effect_processed['m_multi_boundary_e'], self.input, self.output, self.v_list, self.n_ways, self.model, regression=self.regression)
+            self.rset_joint_effect_raw['joint_effect_all_pair_set'] = np.array(joint_effect_all_pair_set)
+            self.rset_joint_effect_raw['loss_emp_all_pair_set'] = np.array(loss_emp_all_pair_set)
+            # self.rset_joint_effect_raw['m_multi_boundary_e'] = m_multi_boundary_e
+            self.logger.info('Calculation done')
+            self.logger.info('Calculating FISC in the Rashomon set for all models in the Rashomon set')
+        else:
+            self.logger.info('Already exists, skip')
 
-        all_main_effects_ratio, all_main_effects_diff = get_all_main_effects(m_multi_boundary_e,
-                                                                                              self.input, self.output,
-                                                                                              self.model, self.v_list, self.regression)
-        self.logger.info('Calculation done')
-        self.rset_main_effect_processed['m_multi_boundary_e'] = m_multi_boundary_e
-        self.rset_main_effect_processed['all_main_effects_ratio'] = all_main_effects_ratio
-        self.rset_main_effect_processed['all_main_effects_diff'] = all_main_effects_diff
-        save_json(OUTPUT_DIR + '/FIS-main-effect-processed-{}.json'.format(self.time_str), self.rset_main_effect_processed)
-
-
-        self.logger.info('Calculating all joint effects of feature in pairs {}'. format(len(self.all_pairs)))
-        joint_effect_all_pair_set, loss_emp_all_pair_set = get_all_joint_effects(m_multi_boundary_e, self.input, self.output, self.v_list, self.n_ways, self.model, regression=self.regression)
-        self.rset_joint_effect_raw['joint_effect_all_pair_set'] = np.array(joint_effect_all_pair_set)
-        self.rset_joint_effect_raw['loss_emp_all_pair_set'] = np.array(loss_emp_all_pair_set)
-        # self.rset_joint_effect_raw['m_multi_boundary_e'] = m_multi_boundary_e
-        self.logger.info('Calculation done')
-        self.logger.info('Calculating FISC in the Rashomon set for all models in the Rashomon set')
-
-        self.fis_in_r = get_fis_in_r(self.all_pairs, self.rset_joint_effect_raw['joint_effect_all_pair_set'], all_main_effects_diff, self.n_ways, self.quadrants)
+        self.fis_in_r = get_fis_in_r(self.all_pairs, self.rset_joint_effect_raw['joint_effect_all_pair_set'], self.rset_main_effect_processed['all_main_effects_diff'], self.n_ways, self.quadrants)
         self.loss_in_r = get_loss_in_r(self.all_pairs, self.rset_joint_effect_raw['loss_emp_all_pair_set'], self.n_ways, self.quadrants, self.epsilon, self.loss)
         for idx, fis_each_pair in enumerate(self.fis_in_r):
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)] = {}
@@ -381,6 +384,70 @@ class fis_explainer:
             plt.axvline(threshold, color='black')
         if save:
             plt.savefig(OUTPUT_DIR+'/swarm_plot_{}.png'.format(suffix), bbox_inches='tight')
+        plt.show()
+
+    def swarm_plot_MR(self, interest_of_features, vname=None, plot_all=False,
+                   threshold=None, boxplot=False, save=False, suffix=None):
+
+        FI_name = self.v_list[interest_of_features]
+        fis_in_r_df = pd.DataFrame(self.rset_main_effect_processed['all_main_effects_diff'])
+        loss_in_r_df = pd.DataFrame(self.rset_main_effect_processed['loss_diff_multi_boundary_e'])
+        fis_ref_l = [i[-1] for i in self.ref_analysis['ref_main_effects']]
+        fis_ref_l_df = pd.DataFrame(fis_ref_l)
+        fis_in_r_df['Feature'] = FI_name
+        loss_in_r_df['Feature'] = FI_name
+        fis_ref_l_df['Feature'] = FI_name
+
+        list_idx = []
+        for pair in interest_of_features:
+            list_idx.append(self.v_list.index(pair))
+
+        if plot_all:
+            fis_in_r_df_long = fis_in_r_df.melt(id_vars='Feature', var_name='m_value',
+                                                value_name='FIS')
+            loss_in_r_df_long = loss_in_r_df.melt(id_vars='Feature', var_name='m_value',
+                                                  value_name='Loss')
+            fis_ref_l_df_long = fis_ref_l_df.melt(id_vars='Feature', var_name='m_value',
+                                                  value_name='FIS')
+
+        else:
+            fis_in_r_df_long = fis_in_r_df.loc[list_idx,].melt(id_vars='Feature', var_name='m_value',
+                                                               value_name='FIS')
+            loss_in_r_df_long = loss_in_r_df.loc[list_idx,].melt(id_vars='Features', var_name='m_value',
+                                                                 value_name='Loss')
+            fis_ref_l_df_long = fis_ref_l_df.loc[list_idx,].melt(id_vars='Feature', var_name='m_value',
+                                                                 value_name='FIS')
+
+        fis_in_r_df_long['Loss'] = loss_in_r_df_long['Loss']
+        fis_ref_l_df_long['Loss'] = 0
+        sns.reset_defaults()
+        sns.set(rc={'figure.figsize': (10, 10)})
+        cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["#1E88E5", '#7C52FF', "#ff0d57"], N=180)
+        norm = plt.Normalize(fis_in_r_df_long['Loss'].min(), self.loss + self.epsilon)
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        sns.set_style("whitegrid")
+        ax2 = sns.swarmplot(data=fis_in_r_df_long, x='FIS', y='Feature', hue='Loss', palette=cmap, size=3,
+                            zorder=0)
+
+        ax = sns.pointplot(data=fis_ref_l_df_long, x='FIS', y='Feature', linestyles='', markers='*',
+                           color='orange', scale=1.2, ax=ax2)
+        if boxplot:
+            sns.boxplot(x="FIS", y='Feature', data=fis_in_r_df_long,
+                        showcaps=False, boxprops={'facecolor': 'None'},
+                        showfliers=False, whiskerprops={'linewidth': 0}, ax=ax)
+        ax.get_legend().remove()
+        ax.tick_params(axis='both', which='major', labelsize=18)
+        ax.set_xlabel('FIS', fontsize=18)
+        ax.set_ylabel('Features', fontsize=18)
+        ax.figure.colorbar(sm, fraction=0.046, pad=0.04)
+        for location in ['left', 'right', 'top', 'bottom']:
+            ax.spines[location].set_linewidth(1)
+            ax.spines[location].set_color('black')
+        if threshold is not None:
+            plt.axvline(threshold, color='black')
+        if save:
+            plt.savefig(OUTPUT_DIR + '/swarm_plot_{}.png'.format(suffix), bbox_inches='tight')
         plt.show()
 
     def halo_plot(self, pair_idx, save=False, path=''):

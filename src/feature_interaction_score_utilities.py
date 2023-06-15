@@ -189,11 +189,12 @@ def get_fis_in_r(all_pairs, joint_effect_all_pair_set, main_effect_all_diff, n_w
         joint_effect_all_pair_e = joint_effect_all_pair_set[i]
         main_effect_all_diff_e = main_effect_all_diff[i]
         main_effect_all_diff_e_reshaped = main_effect_all_diff_e.transpose((1, 0, 2))
+        all_pairs_mask = find_all_n_way_feature_pairs((range(len(main_effect_all_diff_e_reshaped))), n_ways=n_ways)
+        # fi is n_featurex11x2, fij_joint is n_pairx36
         for idx, pair in enumerate(all_pairs):
             logger.info('Calculating :pair {} with index {} and {}'.format(idx, pair[0], pair[1]))
-            # fi is 40x11x2, fij_joint is 780x36
-            fi = main_effect_all_diff_e_reshaped[pair[0]]
-            fj = main_effect_all_diff_e_reshaped[pair[1]]
+            fi = main_effect_all_diff_e_reshaped[all_pairs_mask[idx][0]]
+            fj = main_effect_all_diff_e_reshaped[all_pairs_mask[idx][1]]
             fij_joint = joint_effect_all_pair_e[idx]
             # 9 paris
             sum_to_one = find_all_sum_to_one_pairs(n_ways)
