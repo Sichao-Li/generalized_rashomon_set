@@ -264,8 +264,11 @@ class fis_explainer:
             self._explore_m_in_R(
                 self.epsilon, self.loss, self.v_list, self.model, self.input,
                 self.output, delta=0.1, regression=self.regression)
+        else:
+            self.logger.info('Already exists, skip')
+
         self.logger.info('Calculating all main effects of features {} for all models in the Rashomon set'.format(self.v_list))
-        m_multi_boundary_e = get_all_m_with_t_in_range(self.rset_main_effect_raw['points_all_max'],
+        m_multi_boundary_e, _ = get_all_m_with_t_in_range(self.rset_main_effect_raw['points_all_max'],
                                                        self.rset_main_effect_raw['points_all_min'],
                                                        self.epsilon)
 

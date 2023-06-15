@@ -1,3 +1,5 @@
+import numpy as np
+
 from general_utilities import *
 logger = logging.getLogger(__name__)
 def Interaction_effect_calculation(feature_idx, model, m_all, X, y, regression=True):
@@ -109,22 +111,25 @@ def get_all_m_with_t_in_range(points_all_max, points_all_min, epsilon):
     d = len(np.arange(0.0, 1 + 0.1, 0.1))
     n_features = len(points_all_min)
     m_multi_boundary_e = np.ones([p, d, n_features, 2], dtype=np.float64)
+    loss_diff_multi_boundary_e = np.ones([p, d, n_features, 2], dtype=np.float64)
     for idxj, sub_boundary_rate in enumerate(np.arange(0.2, 1 + 0.2, 0.2)):
         for idxk, j in enumerate(np.arange(0.0, 1 + 0.1, 0.1)):
             for idxi, feature in enumerate(points_all_positive_reshaped):
                 for idv in (feature):
                     if idv[-1] <= j * sub_boundary_rate * epsilon:
                         m_multi_boundary_e[idxj, idxk, idxi, 0] = idv[0]
+                        loss_diff_multi_boundary_e[idxj, idxk, idxi, 0] = idv[-1]
                     else:
                         break
             for idxi, feature in enumerate(points_all_negative_reshaped):
                 for idv in (feature):
                     if idv[-1] <= j * sub_boundary_rate * epsilon:
                         m_multi_boundary_e[idxj, idxk, idxi, 1] = idv[0]
+                        loss_diff_multi_boundary_e[idxj, idxk, idxi, 1] = idv[-1]
                     else:
                         break
     #   np.transpose(1,0,2)
-    return m_multi_boundary_e
+    return m_multi_boundary_e, loss_diff_multi_boundary_e
 
 def get_all_main_effects(m_multi_boundary_e, input, output, model, v_list, regression):
     '''
@@ -136,15 +141,22 @@ def get_all_main_effects(m_multi_boundary_e, input, output, model, v_list, regre
     '''
     fi_all_diff = np.zeros(m_multi_boundary_e.shape)
     fi_all_ratio = np.zeros(m_multi_boundary_e.shape)
+    m_prev = np.inf
+    loss_before, loss_after = 1, 1
     for idx, sub_boundary_rate in enumerate(np.arange(0.2, 1.2, 0.2)):
         for idxj, j in enumerate(np.arange(0, 1 + 0.1, 0.1)):
             for i in range(len(v_list)):
                 for k in range(2):
                     X0 = input.copy()
-                    X0[:, i] = X0[:, i] * m_multi_boundary_e[idx, idxj, i, k]
-                    loss_after, loss_before = feature_effect(i, X0, output, model, 30, regression)
-                    fi_all_ratio[idx, idxj, i, k] = loss_after / loss_before
-                    fi_all_diff[idx, idxj, i, k] = loss_after - loss_before
+                    if m_multi_boundary_e[idx, idxj, i, k] == m_prev:
+                        fi_all_ratio[idx, idxj, i, k] = loss_after / loss_before
+                        fi_all_diff[idx, idxj, i, k] = loss_after - loss_before
+                    else:
+                        X0[:, i] = X0[:, i] * m_multi_boundary_e[idx, idxj, i, k]
+                        loss_after, loss_before = feature_effect(i, X0, output, model, 30, regression)
+                        fi_all_ratio[idx, idxj, i, k] = loss_after / loss_before
+                        fi_all_diff[idx, idxj, i, k] = loss_after - loss_before
+                        m_prev = m_multi_boundary_e[idx, idxj, i, k]
     return fi_all_ratio, fi_all_diff
 
 def get_all_joint_effects(m_multi_boundary_e, input, output, v_list, n_ways, model, regression=True):
