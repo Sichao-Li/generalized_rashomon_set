@@ -193,7 +193,6 @@ class fis_explainer:
         unimportant_feature_indices = np.where(np.array(self.ref_analysis['ref_main_effects']) == 0)[0]
         self.logger.info('features with importance 0 are excluded, including {}'.format(unimportant_feature_indices))
         self.v_list = np.array(list(set(unimportant_feature_indices) ^ set(self.v_list)))
-        self.v_list = self.v_list[:4]
         self.all_pairs = find_all_n_way_feature_pairs((self.v_list), n_ways=self.n_ways)
         self.ref_analysis['ref_joint_effects'] = self._get_ref_joint_effect()
         self.ref_analysis['important_features'] = self.v_list
