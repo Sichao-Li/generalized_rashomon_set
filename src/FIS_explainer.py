@@ -365,7 +365,7 @@ class fis_explainer:
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
         sns.set_style("whitegrid")
-        ax2 = sns.swarmplot(data=fis_in_r_df_long, x='FIS', y='Interaction pairs', hue='Loss', palette=cmap, size=1,
+        ax2 = sns.swarmplot(data=fis_in_r_df_long, x='FIS', y='Interaction pairs', hue='Loss', palette=cmap, size=3,
                             zorder=0)
 
         ax = sns.pointplot(data=fis_ref_l_df_long, x='FIS', y='Interaction pairs', linestyles='', markers='*',
