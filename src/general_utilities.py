@@ -100,13 +100,13 @@ def MDS(vt_l, n_features_in, n_features_out=2):
     return vt_l_transformed_x, vt_l_transformed_y
 
 
-def loss_shuffle(model, X0, vidx, y, times=30, regression=True):
+def loss_shuffle(model, X0, v_idx, y, times=30, regression=True):
 #     shuffle to evaluate the feature importance
     loss_all = []
-    if np.array(vidx).ndim == 0:
-        vidx = [vidx]
+    if np.array(v_idx).ndim == 0:
+        v_idx = [v_idx]
     for i in range(times):
-        for idx in vidx:
+        for idx in v_idx:
             if not hasattr(X0, 'shape'):
                 X0 = np.asarray(X0).copy()
                 arr_temp = X0[idx[:, 0], idx[:, 1], :]
@@ -130,7 +130,7 @@ def loss_shuffle(model, X0, vidx, y, times=30, regression=True):
         loss_all.append(loss_shuffle)
     return np.mean(loss_all)
 
-def feature_effect(vidx, X0, y, model, shuffle_times=30, regression=True):
+def feature_effect(v_idx, X0, y, model, shuffle_times=30, regression=True):
     # loss before shuffle
     if regression:
         pred = model.predict(X0)
@@ -144,7 +144,7 @@ def feature_effect(vidx, X0, y, model, shuffle_times=30, regression=True):
             pred = pred.detach().numpy()
         loss_before = loss_classification(y, pred)
     # loss after shuffle
-    loss_after = loss_shuffle(model, X0, vidx, y, shuffle_times, regression=regression)
+    loss_after = loss_shuffle(model, X0, v_idx, y, shuffle_times, regression=regression)
     return loss_after, loss_before
 
 def feature_effect_context(vidx, X0, y, model, shuffle_times=30, regression=True, context=1):

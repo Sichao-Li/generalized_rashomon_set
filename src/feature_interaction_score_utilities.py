@@ -2,7 +2,7 @@ import numpy as np
 
 from general_utilities import *
 logger = logging.getLogger(__name__)
-def Interaction_effect_calculation(feature_idx, model, m_all, X, y, regression=True):
+def Interaction_effect_calculation(feature_idx, model, m_all, X, y, regression=True, subset_idx=None):
     '''
     Calculate the feature interaction effect following
     c(x1, x2) = c(x1) + c(x2) + fi(x1, x2) wrt. c(x1) + c(x2) = boundary
@@ -13,7 +13,7 @@ def Interaction_effect_calculation(feature_idx, model, m_all, X, y, regression=T
             feature_idx: features to be calculated
             model: optimal model
             e_idx: pairs that sum to one index
-            m_all: variance tolerance for all features
+            m_all: variance tolerance for all features [n_feature, 11, 2]
             X: input data
             loss_ref: optimal loss
             boundary: pre-defined boundary for R set
@@ -21,7 +21,7 @@ def Interaction_effect_calculation(feature_idx, model, m_all, X, y, regression=T
             loss_emp: emperical loss set
             diff: feature interaction value set
     '''
-    m_interest = np.array(m_all)[(feature_idx), :, :]
+    m_interest = np.array(m_all)[(subset_idx), :, :]
     loss_emp = []
     joint_effect_all = []
     n_ways = len(feature_idx)
@@ -49,7 +49,7 @@ def Interaction_effect_all_pairs(X, y, vlist, n_ways, model, m_all, regression=T
             vlist: variable list
             n_ways: an integer that defines the number of joint features
             model: optimal model
-            m_all: variance tolerance for all features
+            m_all: variance tolerance for all features [n_feature, 11, 2]
             loss_ref: optimal loss
             boundary: pre-defined boundary for R set
         Output:
@@ -62,10 +62,10 @@ def Interaction_effect_all_pairs(X, y, vlist, n_ways, model, m_all, regression=T
     for subset in all_n_way_feature_subsets:
         # for each pair, find interaction effect and loss
         if subset[0] != 0:
-            subset = np.nonzero(np.in1d(vlist, subset))[0]
+            subset_idx = np.nonzero(np.in1d(vlist, subset))[0]
         # for sum_to_one_pair in all_sum_to_one_pairs:
             # each subset has 2^n possibilities
-        joint_effect_single_pair, loss_emp_single_pair = Interaction_effect_calculation(subset, model, m_all, X, y, regression=regression)
+        joint_effect_single_pair, loss_emp_single_pair = Interaction_effect_calculation(subset, model, m_all, X, y, regression=regression, subset_idx=subset_idx)
         joint_effect_all_pair.append(joint_effect_single_pair)
         loss_emp_all_pair.append(loss_emp_single_pair)
     return joint_effect_all_pair, loss_emp_all_pair
@@ -136,28 +136,28 @@ def get_all_main_effects(m_multi_boundary_e, input, output, model, v_list, regre
     :param m_multi_boundary_e: an m matrix in shape [5, 11, n_features, 2]
     :param model: reference model
     :return:
-        fi_all_ratio: main effects of all features in ratio
-        fi_all_diff: main effects of all features in difference
+        main_effect_all_ratio: main effects of all features in ratio
+        main_effect_all_diff: main effects of all features in difference
     '''
-    fi_all_diff = np.zeros(m_multi_boundary_e.shape)
-    fi_all_ratio = np.zeros(m_multi_boundary_e.shape)
+    main_effect_all_diff = np.zeros(m_multi_boundary_e.shape)
+    main_effect_all_ratio = np.zeros(m_multi_boundary_e.shape)
     m_prev = np.inf
     loss_before, loss_after = 1, 1
     for idx, sub_boundary_rate in enumerate(np.arange(0.2, 1.2, 0.2)):
         for idxj, j in enumerate(np.arange(0, 1 + 0.1, 0.1)):
-            for i in range(len(v_list)):
+            for idxi, i in enumerate(v_list):
                 for k in range(2):
                     X0 = input.copy()
-                    if m_multi_boundary_e[idx, idxj, i, k] == m_prev:
-                        fi_all_ratio[idx, idxj, i, k] = loss_after / loss_before
-                        fi_all_diff[idx, idxj, i, k] = loss_after - loss_before
+                    if m_multi_boundary_e[idx, idxj, idxi, k] == m_prev:
+                        main_effect_all_ratio[idx, idxj, idxi, k] = loss_after / loss_before
+                        main_effect_all_diff[idx, idxj, idxi, k] = loss_after - loss_before
                     else:
-                        X0[:, i] = X0[:, i] * m_multi_boundary_e[idx, idxj, i, k]
+                        X0[:, i] = X0[:, i] * m_multi_boundary_e[idx, idxj, idxi, k]
                         loss_after, loss_before = feature_effect(i, X0, output, model, 30, regression)
-                        fi_all_ratio[idx, idxj, i, k] = loss_after / loss_before
-                        fi_all_diff[idx, idxj, i, k] = loss_after - loss_before
-                        m_prev = m_multi_boundary_e[idx, idxj, i, k]
-    return fi_all_ratio, fi_all_diff
+                        main_effect_all_ratio[idx, idxj, idxi, k] = loss_after / loss_before
+                        main_effect_all_diff[idx, idxj, idxi, k] = loss_after - loss_before
+                        m_prev = m_multi_boundary_e[idx, idxj, idxi, k]
+    return main_effect_all_ratio, main_effect_all_diff
 
 def get_all_joint_effects(m_multi_boundary_e, input, output, v_list, n_ways, model, regression=True):
     '''
@@ -180,22 +180,22 @@ def get_all_joint_effects(m_multi_boundary_e, input, output, v_list, n_ways, mod
 def get_fis_in_r(all_pairs, joint_effect_all_pair_set, main_effect_all_diff, n_ways, quadrants):
     '''
     :param pairs: all pairs of interest
-    :param joint_effect_all_pair_set: all joint effects of these pairs
-    :param main_effect_all_diff: all main effects of these features in the pair
+    :param joint_effect_all_pair_set: all joint effects of these pairs [5, n_pairs, 36]
+    :param main_effect_all_diff: all main effects of these features in the pair [5, 11, n_features, 2]
     :return: fis of all pairs in the Rashomon set
     '''
     fis_rset = np.ones(joint_effect_all_pair_set.shape)
     for i in range(5):
-        joint_effect_all_pair_e = joint_effect_all_pair_set[i]
-        main_effect_all_diff_e = main_effect_all_diff[i]
-        main_effect_all_diff_e_reshaped = main_effect_all_diff_e.transpose((1, 0, 2))
+        joint_effect_all_pair_e = joint_effect_all_pair_set[i]  # [n_pairs, 36]
+        main_effect_all_diff_e = main_effect_all_diff[i]  # [11, n_features, 2]
+        main_effect_all_diff_e_reshaped = main_effect_all_diff_e.transpose((1, 0, 2))  # [n_features, 11, 2]
         all_pairs_mask = find_all_n_way_feature_pairs((range(len(main_effect_all_diff_e_reshaped))), n_ways=n_ways)
         # fi is n_featurex11x2, fij_joint is n_pairx36
         for idx, pair in enumerate(all_pairs):
             logger.info('Calculating :pair {} with index {} and {}'.format(idx, pair[0], pair[1]))
+            fij_joint = joint_effect_all_pair_e[idx]
             fi = main_effect_all_diff_e_reshaped[all_pairs_mask[idx][0]]
             fj = main_effect_all_diff_e_reshaped[all_pairs_mask[idx][1]]
-            fij_joint = joint_effect_all_pair_e[idx]
             # 9 paris
             sum_to_one = find_all_sum_to_one_pairs(n_ways)
             for idxk, sum in enumerate(sum_to_one):

@@ -163,24 +163,23 @@ class fis_explainer:
 
     def _get_ref_joint_effect(self):
         joint_effects_ref = []
-        all_n_way_feature_subsets = find_all_n_way_feature_pairs(vlist=self.v_list, n_ways=self.n_ways)
-        for subset in all_n_way_feature_subsets:
+        for pair_idx in self.all_pairs:
             # TODO: check if the chunk is useful
             # if subset[0] != 0:
             #     subset = np.nonzero(np.in1d(self.v_list, subset))[0]
             #     print(subset)
             if not self.softmax:
                 X0 = self.input.copy()
-                loss_after, loss_before = feature_effect(subset, X0=X0, y=self.output, model=self.model, shuffle_times=30, regression=self.regression)
+                loss_after, loss_before = feature_effect(pair_idx, X0=X0, y=self.output, model=self.model, shuffle_times=30, regression=self.regression)
                 joint_effects_ref.append(loss_after-loss_before)
             else:
                 X0 = copy.copy(self.input.input)
                 try:
-                    mask_indices = self.input._get_mask_indices_of_feature(subset)
+                    mask_indices = self.input._get_mask_indices_of_feature(pair_idx)
                     loss_after, loss_before = feature_effect(mask_indices, X0=X0, y=self.output, model=self.model, shuffle_times=30, regression=self.regression)
                     joint_effects_ref.append(loss_after-loss_before)
                 except Exception:
-                    self.logger.info('Joint effect of {} is 10000'.format(subset))
+                    self.logger.info('Joint effect of {} is 10000'.format(pair_idx))
                     joint_effects_ref.append(10000)
                     pass
         return joint_effects_ref
@@ -194,12 +193,14 @@ class fis_explainer:
         unimportant_feature_indices = np.where(np.array(self.ref_analysis['ref_main_effects']) == 0)[0]
         self.logger.info('features with importance 0 are excluded, including {}'.format(unimportant_feature_indices))
         self.v_list = np.array(list(set(unimportant_feature_indices) ^ set(self.v_list)))
+        self.v_list = self.v_list[:4]
         self.all_pairs = find_all_n_way_feature_pairs((self.v_list), n_ways=self.n_ways)
         self.ref_analysis['ref_joint_effects'] = self._get_ref_joint_effect()
+        self.ref_analysis['important_features'] = self.v_list
+        self.ref_analysis['important_pairs'] = self.all_pairs
         self.logger.info('joint effects calculated and can be called by explainer.ref_joint_effects')
         fis_ref = []
-        pairs = find_all_n_way_feature_pairs(vlist=self.v_list, n_ways=self.n_ways)
-        for idx, i in enumerate(pairs):
+        for idx, i in enumerate(self.all_pairs):
             fis_ref.append((i, abs(self.ref_analysis['ref_joint_effects'][idx] - self.ref_analysis['ref_main_effects'][i[0]] - self.ref_analysis['ref_main_effects'][i[1]])))
         return fis_ref
     def _explore_m_in_R(self, bound, loss_ref, vlist, model, X, y, delta=0.01, regression=True):
@@ -267,6 +268,8 @@ class fis_explainer:
         else:
             self.logger.info('Already exists, skip')
         self.logger.info('Calculating all main effects of features {} for all models in the Rashomon set'.format(self.v_list))
+
+
         if self.rset_main_effect_processed == {}:
             m_multi_boundary_e, loss_diff_multi_boundary_e = get_all_m_with_t_in_range(self.rset_main_effect_raw['points_all_max'],
                                                            self.rset_main_effect_raw['points_all_min'],
@@ -363,7 +366,7 @@ class fis_explainer:
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
         sns.set_style("whitegrid")
-        ax2 = sns.swarmplot(data=fis_in_r_df_long, x='FIS', y='Interaction pairs', hue='Loss', palette=cmap, size=3,
+        ax2 = sns.swarmplot(data=fis_in_r_df_long, x='FIS', y='Interaction pairs', hue='Loss', palette=cmap, size=1,
                             zorder=0)
 
         ax = sns.pointplot(data=fis_ref_l_df_long, x='FIS', y='Interaction pairs', linestyles='', markers='*',
