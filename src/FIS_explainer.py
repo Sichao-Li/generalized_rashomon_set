@@ -118,6 +118,7 @@ class fis_explainer:
         self.epsilon = self.loss*epsilon_rate
         self.all_pairs = find_all_n_way_feature_pairs((self.v_list), n_ways=n_ways)
         # self.m_all, self.points_all_positive, self.points_all_negative, self.main_effects = self.explore_m_in_R(self.epsilon, self.loss, range(len(self.input[-1])), model, input, output, delta=0.1, regression=self.regression)
+        self.FIS_in_Rashomon_set = {}
         self.rset_main_effect_raw = {}
         self.rset_main_effect_processed = {}
         self.ref_analysis={}
@@ -246,20 +247,19 @@ class fis_explainer:
 
     def ref_explain(self):
         # return reference model analysis
-        self.logger.info('Reference model analysis')
-        self.logger.info('Calculating main effect, joint effect and FIS for the reference model')
-        self.ref_analysis['ref_fis'] = self._get_ref_fis()
-        self.logger.info('FIS calculated and can be called by explainer.ref_analysis')
-        self.logger.info('Calculation done')
-        save_json(OUTPUT_DIR+'/Ref-in-Rashomon-set-analysis-{}.json'.format(self.time_str), self.ref_analysis)
+        if self.ref_analysis == {}:
+            self.logger.info('Reference model analysis')
+            self.logger.info('Calculating main effect, joint effect and FIS for the reference model')
+            self.ref_analysis['ref_fis'] = self._get_ref_fis()
+            self.logger.info('FIS calculated and can be called by explainer.ref_analysis')
+            self.logger.info('Calculation done')
+            save_json(OUTPUT_DIR+'/Ref-in-Rashomon-set-analysis-{}.json'.format(self.time_str), self.ref_analysis)
 
     def rset_explain(self):
         '''
         Find the range of FIS for each pair of features in the Rashomon set
         '''
         self.logger.info('Start exploring the possible models')
-        self.FIS_in_Rashomon_set = {}
-        self.rset_joint_effect_raw = {}
         if self.rset_main_effect_raw == {}:
             self._explore_m_in_R(
                 self.epsilon, self.loss, self.v_list, self.model, self.input,
@@ -292,11 +292,14 @@ class fis_explainer:
             # self.rset_joint_effect_raw['m_multi_boundary_e'] = m_multi_boundary_e
             self.logger.info('Calculation done')
             self.logger.info('Calculating FISC in the Rashomon set for all models in the Rashomon set')
+            save_json(OUTPUT_DIR + '/FIS-joint-effect-raw-{}.json'.format(self.time_str), self.rset_joint_effect_raw)
+
         else:
+            self.all_pairs = [tuple(self.FIS_in_Rashomon_set[i]['feature_idx']) for i in self.FIS_in_Rashomon_set]
             self.logger.info('Already exists, skip')
 
-        self.fis_in_r = get_fis_in_r(self.all_pairs, self.rset_joint_effect_raw['joint_effect_all_pair_set'], self.rset_main_effect_processed['all_main_effects_diff'], self.n_ways, self.quadrants)
-        self.loss_in_r = get_loss_in_r(self.all_pairs, self.rset_joint_effect_raw['loss_emp_all_pair_set'], self.n_ways, self.quadrants, self.epsilon, self.loss)
+        self.fis_in_r = get_fis_in_r(self.all_pairs, np.array(self.rset_joint_effect_raw['joint_effect_all_pair_set']), np.array(self.rset_main_effect_processed['all_main_effects_diff']), self.n_ways, self.quadrants)
+        self.loss_in_r = get_loss_in_r(self.all_pairs, np.array(self.rset_joint_effect_raw['loss_emp_all_pair_set']), self.n_ways, self.quadrants, self.epsilon, self.loss)
         for idx, fis_each_pair in enumerate(self.fis_in_r):
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)] = {}
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['feature_idx'] = self.ref_analysis['ref_fis'][idx][0]
@@ -305,7 +308,6 @@ class fis_explainer:
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['min'] = np.min(fis_each_pair)
             self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['max'] = np.max(fis_each_pair)
         self.logger.info('Calculation done')
-        save_json(OUTPUT_DIR + '/FIS-joint-effect-raw-{}.json'.format(self.time_str), self.rset_joint_effect_raw)
         save_json(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json'.format(self.time_str), self.FIS_in_Rashomon_set)
         self.logger.info('Explanation is saved to {}'.format(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json').format(self.time_str))
 
