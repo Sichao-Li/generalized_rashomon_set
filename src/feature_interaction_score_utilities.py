@@ -63,6 +63,8 @@ def Interaction_effect_all_pairs(X, y, vlist, n_ways, model, m_all, regression=T
         # for each pair, find interaction effect and loss
         if subset[0] != 0:
             subset_idx = np.nonzero(np.in1d(vlist, subset))[0]
+        else:
+            subset_idx = subset
         # for sum_to_one_pair in all_sum_to_one_pairs:
             # each subset has 2^n possibilities
         joint_effect_single_pair, loss_emp_single_pair = Interaction_effect_calculation(subset, model, m_all, X, y, regression=regression, subset_idx=subset_idx)
