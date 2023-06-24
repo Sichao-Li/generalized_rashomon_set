@@ -493,7 +493,7 @@ class fis_explainer:
          :param path: the saving path
          '''
         _, loss_emp_single_pair = Interaction_effect_calculation(pair_idx, self.model, self.rset_main_effect_processed['m_multi_boundary_e'][-1].transpose((1, 0, 2)),
-                                                                 self.input, self.output, regression=self.regression)
+                                                                 self.input, self.output, regression=self.regression, subset_idx=pair_idx)
         ball_exp, ball_emp = high_order_vis_loss(loss_emp_single_pair, self.epsilon, 3, self.loss)
         fis_vis_3D(ball_exp, ball_emp, save=save, path=path)
 
