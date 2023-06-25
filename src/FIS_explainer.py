@@ -527,5 +527,3 @@ class fis_explainer_context(fis_explainer):
         return joint_effects_ref
 
 
-    # TODO: Swarm plot for MR
-
