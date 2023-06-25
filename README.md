@@ -17,6 +17,33 @@ The main contributions of this paper are:
 
 ----
 
+## Project structure
+The project is constructed following the below structure:
+```
+project
+│   README.md
+│   requirement.txt    
+│   LICENSE
+└───data
+│   │   data_file.csv
+└───src
+│   │   feature_importance_helper.py
+│   │   feature_interaction_score_utilities.py
+│   │   FIS_explainer.py
+│   │   general_utilities.py
+│   │   Image_wrapper.py
+│   │   visulizer.py
+└───demo
+│   │   toy_example.ipynb
+└───experiments
+│   │   ...
+└───logs
+│   │   ...
+└───results
+│   │   ...
+───────────
+```
+
 ## Requirements
 FISC is a designed based on Python language and specific libraries. Four most commonly-used are listed as follows:
 
