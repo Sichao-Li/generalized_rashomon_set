@@ -311,7 +311,7 @@ class fis_explainer:
         save_json(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json'.format(self.time_str), self.FIS_in_Rashomon_set)
         self.logger.info('Explanation is saved to {}'.format(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json').format(self.time_str))
 
-    def swarm_plot(self, interest_of_pairs, vname=None, plot_all=False,
+    def swarm_plot_FIS(self, interest_of_pairs, vname=None, plot_all=False,
                    threshold=None, boxplot=False, save=False, suffix=None):
         '''
         :param interest_of_pairs: all pairs of interest
@@ -393,35 +393,37 @@ class fis_explainer:
     def swarm_plot_MR(self, interest_of_features, vname=None, plot_all=False,
                    threshold=None, boxplot=False, save=False, suffix=None):
 
-        FI_name = self.v_list[interest_of_features]
-        fis_in_r_df = pd.DataFrame(self.rset_main_effect_processed['all_main_effects_diff'])
-        loss_in_r_df = pd.DataFrame(self.rset_main_effect_processed['loss_diff_multi_boundary_e'])
-        fis_ref_l = [i[-1] for i in self.ref_analysis['ref_main_effects']]
+        if vname is None:
+            FI_name = self.v_list[interest_of_features]
+        else:
+            FI_name = vname
+        all_main_effects_diff_reshaped = self.rset_main_effect_processed[
+            'all_main_effects_diff'].transpose(
+            (2, 0, 1, 3)).reshape((len(self.v_list), -1))
+        fis_in_r_df = pd.DataFrame(all_main_effects_diff_reshaped)
+        loss_in_r_df = pd.DataFrame(
+            self.rset_main_effect_processed['loss_diff_multi_boundary_e'].transpose((2, 0, 1, 3)).reshape(
+                (len(self.v_list), -1)))
+        fis_ref_l = self.ref_analysis['ref_main_effects']
         fis_ref_l_df = pd.DataFrame(fis_ref_l)
         fis_in_r_df['Feature'] = FI_name
         loss_in_r_df['Feature'] = FI_name
         fis_ref_l_df['Feature'] = FI_name
 
-        list_idx = []
-        for pair in interest_of_features:
-            list_idx.append(self.v_list.index(pair))
-
         if plot_all:
             fis_in_r_df_long = fis_in_r_df.melt(id_vars='Feature', var_name='m_value',
-                                                value_name='FIS')
+                                                value_name='Model reliance')
             loss_in_r_df_long = loss_in_r_df.melt(id_vars='Feature', var_name='m_value',
                                                   value_name='Loss')
             fis_ref_l_df_long = fis_ref_l_df.melt(id_vars='Feature', var_name='m_value',
-                                                  value_name='FIS')
-
+                                                  value_name='Model reliance')
         else:
-            fis_in_r_df_long = fis_in_r_df.loc[list_idx,].melt(id_vars='Feature', var_name='m_value',
-                                                               value_name='FIS')
-            loss_in_r_df_long = loss_in_r_df.loc[list_idx,].melt(id_vars='Features', var_name='m_value',
-                                                                 value_name='Loss')
-            fis_ref_l_df_long = fis_ref_l_df.loc[list_idx,].melt(id_vars='Feature', var_name='m_value',
-                                                                 value_name='FIS')
-
+            fis_in_r_df_long = fis_in_r_df.loc[interest_of_features,].melt(id_vars='Feature', var_name='m_value',
+                                                value_name='Model reliance')
+            loss_in_r_df_long = loss_in_r_df.loc[interest_of_features,].melt(id_vars='Feature', var_name='m_value',
+                                                  value_name='Loss')
+            fis_ref_l_df_long = fis_ref_l_df.loc[interest_of_features,].melt(id_vars='Feature', var_name='m_value',
+                                                  value_name='Model reliance')
         fis_in_r_df_long['Loss'] = loss_in_r_df_long['Loss']
         fis_ref_l_df_long['Loss'] = 0
         sns.reset_defaults()
@@ -431,18 +433,18 @@ class fis_explainer:
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
         sns.set_style("whitegrid")
-        ax2 = sns.swarmplot(data=fis_in_r_df_long, x='FIS', y='Feature', hue='Loss', palette=cmap, size=3,
+        ax2 = sns.swarmplot(data=fis_in_r_df_long, x='Model reliance', y='Feature', hue='Loss', palette=cmap, size=3,
                             zorder=0)
 
-        ax = sns.pointplot(data=fis_ref_l_df_long, x='FIS', y='Feature', linestyles='', markers='*',
+        ax = sns.pointplot(data=fis_ref_l_df_long, x='Model reliance', y='Feature', linestyles='', markers='*',
                            color='orange', scale=1.2, ax=ax2)
         if boxplot:
-            sns.boxplot(x="FIS", y='Feature', data=fis_in_r_df_long,
+            sns.boxplot(x="Model reliance", y='Feature', data=fis_in_r_df_long,
                         showcaps=False, boxprops={'facecolor': 'None'},
                         showfliers=False, whiskerprops={'linewidth': 0}, ax=ax)
         ax.get_legend().remove()
         ax.tick_params(axis='both', which='major', labelsize=18)
-        ax.set_xlabel('FIS', fontsize=18)
+        ax.set_xlabel('Model reliance', fontsize=18)
         ax.set_ylabel('Features', fontsize=18)
         ax.figure.colorbar(sm, fraction=0.046, pad=0.04)
         for location in ['left', 'right', 'top', 'bottom']:
