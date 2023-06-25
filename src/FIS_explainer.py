@@ -8,6 +8,10 @@ from feature_importance_helper import *
 from feature_interaction_score_utilities import *
 from visulizer import *
 import os
+from pathlib import Path
+Path("../logs").mkdir(parents=True, exist_ok=True)
+Path("../results").mkdir(parents=True, exist_ok=True)
+
 ROOT_DIR = os.getcwd()
 OUTPUT_DIR = ROOT_DIR+'/../results'
 LOG_DIR = ROOT_DIR+'/../logs'
@@ -397,12 +401,12 @@ class fis_explainer:
             FI_name = self.v_list[interest_of_features]
         else:
             FI_name = vname
-        all_main_effects_diff_reshaped = self.rset_main_effect_processed[
-            'all_main_effects_diff'].transpose(
+        all_main_effects_diff_reshaped = np.array(self.rset_main_effect_processed[
+            'all_main_effects_diff']).transpose(
             (2, 0, 1, 3)).reshape((len(self.v_list), -1))
         fis_in_r_df = pd.DataFrame(all_main_effects_diff_reshaped)
         loss_in_r_df = pd.DataFrame(
-            self.rset_main_effect_processed['loss_diff_multi_boundary_e'].transpose((2, 0, 1, 3)).reshape(
+            np.array(self.rset_main_effect_processed['loss_diff_multi_boundary_e']).transpose((2, 0, 1, 3)).reshape(
                 (len(self.v_list), -1)))
         fis_ref_l = self.ref_analysis['ref_main_effects']
         fis_ref_l_df = pd.DataFrame(fis_ref_l)
