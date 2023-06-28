@@ -490,11 +490,11 @@ class fis_explainer:
             plt.savefig(OUTPUT_DIR + '/swarm_plot_{}.png'.format(suffix), bbox_inches='tight')
         plt.show()
 
-    def halo_plot(self, pair_idx, save=False, path=''):
+    def halo_plot(self, pair_idx, save=False, suffix=''):
         '''
          :param pair_idx: the pair of interest
          :param save: if save the plot
-         :param path: the saving path
+         :param suffix: halo plot feature name
          '''
         fig = plt.figure(figsize=[6,6])
         ax = fig.add_subplot(111)
@@ -519,7 +519,7 @@ class fis_explainer:
                 ax.spines[location].set_linewidth(1)
                 ax.spines[location].set_color('black')
         if save:
-            plt.savefig(path, bbox_inches='tight')
+            plt.savefig(OUTPUT_DIR + '/halo_plot_{}.png'.format(suffix), bbox_inches='tight')
         plt.show()
 
     def halo_plot_3D(self, pair_idx, save=False, path=''):
