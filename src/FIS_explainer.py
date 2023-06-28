@@ -77,13 +77,17 @@ class fis_explainer:
         wrapper_for_torch=False,
     ):
         input, output = self.arg_checks(input, output)
+        self.logger = logging.getLogger(__name__)
+
         self.n_ways = n_ways
         # self.model = model
         self.quadrants = {0: [0, 0], 1: [0, 1], 2: [1, 0], 3: [1, 1]}
         self.input = input
         self.output = output
         self.time_str = time.strftime("%Y%m%d-%H%M%S")
-        self.logger = logging.getLogger(__name__)
+
+        self.logger.info('check if results pre-explained results exist in {}'.format(OUTPUT_DIR))
+        self.results_check(results_path=OUTPUT_DIR)
         if hasattr(input, 'num_features'):
             self.v_list = range(input.num_features)
             self.softmax = True
@@ -133,6 +137,32 @@ class fis_explainer:
             raise ValueError("Either input or output must be defined")
 
         return input, output
+
+    def results_check(self, results_path=OUTPUT_DIR):
+        content_in_results = os.listdir(results_path)
+        analysis_results = {'FIS-in-Rashomon-set': {'saved': False, 'path': '', 'variable_name': 'FIS_in_Rashomon_set'},
+                            'FIS-joint-effect-raw': {'saved': False, 'path': '',
+                                                     'variable_name': 'rset_joint_effect_raw'},
+                            'FIS-main-effect-raw': {'saved': False, 'path': '',
+                                                    'variable_name': 'rset_main_effect_raw'},
+                            'FIS-main-effect-processed': {'saved': False, 'path': '',
+                                                          'variable_name': 'rset_main_effect_processed'},
+                            'Ref-in-Rashomon-set-analysis': {'saved': False, 'path': '',
+                                                             'variable_name': 'ref_analysis'}}
+        if len(content_in_results) == 0:
+            self.logger.info('Nothing in the directory {}'.format(results_path))
+        else:
+            for result in analysis_results:
+                for content in content_in_results:
+                    if result in content:
+                        analysis_results[result]['saved'] = True
+                        result_path = OUTPUT_DIR + '/' + content
+                        analysis_results[result]['path'] = result_path
+                        att_name = analysis_results[result]['variable_name']
+                        setattr(self, att_name, load_json(result_path))
+                        break
+                if not analysis_results[result]['saved']:
+                    self.logger.info('{} is not in {}'.format(result, content_in_results))
 
     def loss_fn(self, loss_fn):
         if loss_fn == 'regression':
