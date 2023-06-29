@@ -85,9 +85,7 @@ class fis_explainer:
         self.input = input
         self.output = output
         self.time_str = time.strftime("%Y%m%d-%H%M%S")
-
-        self.logger.info('check if results pre-explained results exist in {}'.format(OUTPUT_DIR))
-        self.results_check(results_path=OUTPUT_DIR)
+        self.logger.info('You can call function explainer.load_results(results_path="") to load trained results if exist')
         if hasattr(input, 'num_features'):
             self.v_list = range(input.num_features)
             self.softmax = True
@@ -138,7 +136,7 @@ class fis_explainer:
 
         return input, output
 
-    def results_check(self, results_path=OUTPUT_DIR):
+    def load_results(self, results_path=OUTPUT_DIR):
         content_in_results = os.listdir(results_path)
         analysis_results = {'FIS-in-Rashomon-set': {'saved': False, 'path': '', 'variable_name': 'FIS_in_Rashomon_set'},
                             'FIS-joint-effect-raw': {'saved': False, 'path': '',
