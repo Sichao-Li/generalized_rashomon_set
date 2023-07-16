@@ -287,63 +287,68 @@ class fis_explainer:
             self.logger.info('Calculation done')
             save_json(OUTPUT_DIR+'/Ref-in-Rashomon-set-analysis-{}.json'.format(self.time_str), self.ref_analysis)
 
-    def rset_explain(self):
+    def rset_explain(self, main_effect=True, interaction_effect=True):
         '''
         Find the range of FIS for each pair of features in the Rashomon set
         '''
+        # Main effect processing
         self.logger.info('Start exploring the possible models')
-        if self.rset_main_effect_raw == {}:
-            self._explore_m_in_R(
-                self.epsilon, self.loss, self.v_list, self.model, self.input,
-                self.output, delta=0.1, regression=self.regression)
-        else:
-            self.logger.info('Already exists, skip')
-        self.logger.info('Calculating all main effects of features {} for all models in the Rashomon set'.format(self.v_list))
+
+        if main_effect:
+            if self.rset_main_effect_raw == {}:
+                self._explore_m_in_R(
+                    self.epsilon, self.loss, self.v_list, self.model, self.input,
+                    self.output, delta=0.1, regression=self.regression)
+            else:
+                self.logger.info('Already exists, skip')
+            self.logger.info('Calculating all main effects of features {} for all models in the Rashomon set'.format(self.v_list))
 
 
-        if self.rset_main_effect_processed == {}:
-            m_multi_boundary_e, loss_diff_multi_boundary_e = get_all_m_with_t_in_range(self.rset_main_effect_raw['points_all_max'],
-                                                           self.rset_main_effect_raw['points_all_min'],
-                                                           self.epsilon)
-            all_main_effects_ratio, all_main_effects_diff = get_all_main_effects(m_multi_boundary_e,
-                                                                                                  self.input, self.output,
-                                                                                                  self.model, self.v_list, self.regression)
-            self.logger.info('Calculation done')
-            self.rset_main_effect_processed['m_multi_boundary_e'] = m_multi_boundary_e
-            self.rset_main_effect_processed['all_main_effects_ratio'] = all_main_effects_ratio
-            self.rset_main_effect_processed['all_main_effects_diff'] = all_main_effects_diff
-            self.rset_main_effect_processed['loss_diff_multi_boundary_e'] = loss_diff_multi_boundary_e
-            save_json(OUTPUT_DIR + '/FIS-main-effect-processed-{}.json'.format(self.time_str), self.rset_main_effect_processed)
-        else:
-            self.logger.info('Already exists, skip')
-        if self.rset_joint_effect_raw == {}:
-            self.logger.info('Calculating all joint effects of feature in pairs {}'. format(len(self.all_pairs)))
-            joint_effect_all_pair_set, loss_emp_all_pair_set = get_all_joint_effects(self.rset_main_effect_processed['m_multi_boundary_e'], self.input, self.output, self.v_list, self.n_ways, self.model, regression=self.regression)
-            self.rset_joint_effect_raw['joint_effect_all_pair_set'] = np.array(joint_effect_all_pair_set)
-            self.rset_joint_effect_raw['loss_emp_all_pair_set'] = np.array(loss_emp_all_pair_set)
-            # self.rset_joint_effect_raw['m_multi_boundary_e'] = m_multi_boundary_e
-            self.logger.info('Calculation done')
-            self.logger.info('Calculating FISC in the Rashomon set for all models in the Rashomon set')
-            save_json(OUTPUT_DIR + '/FIS-joint-effect-raw-{}.json'.format(self.time_str), self.rset_joint_effect_raw)
+            if self.rset_main_effect_processed == {}:
+                m_multi_boundary_e, loss_diff_multi_boundary_e = get_all_m_with_t_in_range(self.rset_main_effect_raw['points_all_max'],
+                                                               self.rset_main_effect_raw['points_all_min'],
+                                                               self.epsilon)
+                all_main_effects_ratio, all_main_effects_diff = get_all_main_effects(m_multi_boundary_e,
+                                                                                                      self.input, self.output,
+                                                                                                      self.model, self.v_list, self.regression)
+                self.logger.info('Calculation done')
+                self.rset_main_effect_processed['m_multi_boundary_e'] = m_multi_boundary_e
+                self.rset_main_effect_processed['all_main_effects_ratio'] = all_main_effects_ratio
+                self.rset_main_effect_processed['all_main_effects_diff'] = all_main_effects_diff
+                self.rset_main_effect_processed['loss_diff_multi_boundary_e'] = loss_diff_multi_boundary_e
+                save_json(OUTPUT_DIR + '/FIS-main-effect-processed-{}.json'.format(self.time_str), self.rset_main_effect_processed)
+            else:
+                self.logger.info('Already exists, skip')
+        if interaction_effect:
+            # Joint effect processing
+            if self.rset_joint_effect_raw == {}:
+                self.logger.info('Calculating all joint effects of feature in pairs {}'. format(len(self.all_pairs)))
+                joint_effect_all_pair_set, loss_emp_all_pair_set = get_all_joint_effects(self.rset_main_effect_processed['m_multi_boundary_e'], self.input, self.output, self.v_list, self.n_ways, self.model, regression=self.regression)
+                self.rset_joint_effect_raw['joint_effect_all_pair_set'] = np.array(joint_effect_all_pair_set)
+                self.rset_joint_effect_raw['loss_emp_all_pair_set'] = np.array(loss_emp_all_pair_set)
+                # self.rset_joint_effect_raw['m_multi_boundary_e'] = m_multi_boundary_e
+                self.logger.info('Calculation done')
+                self.logger.info('Calculating FISC in the Rashomon set for all models in the Rashomon set')
+                save_json(OUTPUT_DIR + '/FIS-joint-effect-raw-{}.json'.format(self.time_str), self.rset_joint_effect_raw)
 
-        else:
-            self.all_pairs = self.ref_analysis['important_pairs']
-            self.logger.info('Already exists, skip')
-        if self.FIS_in_Rashomon_set == {}:
-            self.fis_in_r = get_fis_in_r(self.all_pairs, np.array(self.rset_joint_effect_raw['joint_effect_all_pair_set']), np.array(self.rset_main_effect_processed['all_main_effects_diff']), self.n_ways, self.quadrants)
-            self.loss_in_r = get_loss_in_r(self.all_pairs, np.array(self.rset_joint_effect_raw['loss_emp_all_pair_set']), self.n_ways, self.quadrants, self.epsilon, self.loss)
-            for idx, fis_each_pair in enumerate(self.fis_in_r):
-                self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)] = {}
-                self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['feature_idx'] = self.ref_analysis['ref_fis'][idx][0]
-                self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results'] = {}
-                self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['ref'] = self.ref_analysis['ref_fis'][idx][1]
-                self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['min'] = np.min(fis_each_pair)
-                self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['max'] = np.max(fis_each_pair)
-            self.logger.info('Calculation done')
-            save_json(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json'.format(self.time_str), self.FIS_in_Rashomon_set)
-            self.logger.info('Explanation is saved to {}'.format(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json').format(self.time_str))
-        else:
-            self.logger.info('Already exists, skip')
+            else:
+                self.all_pairs = self.ref_analysis['important_pairs']
+                self.logger.info('Already exists, skip')
+            if self.FIS_in_Rashomon_set == {}:
+                self.fis_in_r = get_fis_in_r(self.all_pairs, np.array(self.rset_joint_effect_raw['joint_effect_all_pair_set']), np.array(self.rset_main_effect_processed['all_main_effects_diff']), self.n_ways, self.quadrants)
+                self.loss_in_r = get_loss_in_r(self.all_pairs, np.array(self.rset_joint_effect_raw['loss_emp_all_pair_set']), self.n_ways, self.quadrants, self.epsilon, self.loss)
+                for idx, fis_each_pair in enumerate(self.fis_in_r):
+                    self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)] = {}
+                    self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['feature_idx'] = self.ref_analysis['ref_fis'][idx][0]
+                    self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results'] = {}
+                    self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['ref'] = self.ref_analysis['ref_fis'][idx][1]
+                    self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['min'] = np.min(fis_each_pair)
+                    self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['max'] = np.max(fis_each_pair)
+                self.logger.info('Calculation done')
+                save_json(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json'.format(self.time_str), self.FIS_in_Rashomon_set)
+                self.logger.info('Explanation is saved to {}'.format(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json').format(self.time_str))
+            else:
+                self.logger.info('Already exists, skip')
     def swarm_plot_FIS(self, interest_of_pairs, vname=None, plot_all=False,
                    threshold=None, boxplot=False, save=False, suffix=None):
         '''
