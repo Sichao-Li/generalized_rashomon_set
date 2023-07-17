@@ -538,6 +538,12 @@ class fis_explainer:
         ball_exp, ball_emp = high_order_vis_loss(loss_emp_single_pair, self.epsilon, 3, self.loss)
         fis_vis_3D(ball_exp, ball_emp, save=save, path=path)
 
+    def feature_importance_uni(self):
+        '''
+        return a list of universal feature importance ranking from the Rashomon set
+        '''
+        return [np.std(i) for i in np.array(self.rset_main_effect_processed['all_main_effects_diff']).transpose((2, 0, 1, 3)).reshape((len(self.v_list), -1))]
+
 class fis_explainer_context(fis_explainer):
     '''
     The class is used to illustrate the usage of fis in context of archipelago (https://github.com/mtsang/archipelago)
