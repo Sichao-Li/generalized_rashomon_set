@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 from general_utilities import *
 from feature_interaction_score_utilities import *
-
+from copy import copy
 def epsilon_vs_score_vs_m(vlist, vt_fi, vt_f):
     fig, ax = plt.subplots(3,1, figsize=(6, 6), facecolor='w', edgecolor='k')
     colors = cm.rainbow(np.linspace(0, 1, len(vlist)))
@@ -201,3 +201,36 @@ def fis_vis_3D(ball_exp, ball_emp, save=False, path=''):
     if save:
         plt.savefig(path, bbox_inches='tight')
     plt.show()
+
+    def plot_feature_importance(ft_set, feature_importance, show_cols=30):
+        '''
+        plot feature importance ranking from high to low
+        '''
+        # colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', 'grey']
+        fig = plt.figure(figsize=(12, 4))
+        w_lr_sort, ft_sorted, sorted_index_pos = return_feature_importance(ft_set, feature_importance,
+                                                                           show_cols=show_cols)
+        x_val = list(range(len(w_lr_sort)))
+        ax = plt.gca()
+        ax.xaxis.grid(False, color="black", linestyle='--', lw=1, alpha=0.5)
+        ax.yaxis.grid(False, color="black", linestyle='--', lw=1, alpha=0.5)
+        ax.set_facecolor("white")
+        ax.tick_params(axis='both', which='major', labelsize=16)
+        plt.xlabel('Feature', fontsize=16)
+        plt.ylabel('Ranking', fontsize=16)
+        plt.xticks(x_val, ft_sorted, rotation='vertical')
+        return fig
+
+    def return_feature_importance(ft_set, feature_importance, show_cols=30):
+        w_lr = copy(np.abs(feature_importance))
+        w_lr = 100 * (w_lr / w_lr.max())
+        sorted_index_pos = [index for index, num in sorted(enumerate(w_lr), key=lambda x: x[-1], reverse=True)]
+        ft_sorted = []
+        w_lr_sort = []
+        for i, idx in enumerate(sorted_index_pos):
+            if i > show_cols:
+                break
+            ft_sorted.append(ft_set[idx])
+            w_lr_sort.append(w_lr[idx])
+
+        return w_lr_sort, ft_sorted, sorted_index_pos
