@@ -202,35 +202,37 @@ def fis_vis_3D(ball_exp, ball_emp, save=False, path=''):
         plt.savefig(path, bbox_inches='tight')
     plt.show()
 
-    def plot_feature_importance(ft_set, feature_importance, show_cols=30):
-        '''
-        plot feature importance ranking from high to low
-        '''
-        # colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', 'grey']
-        fig = plt.figure(figsize=(12, 4))
-        w_lr_sort, ft_sorted, sorted_index_pos = return_feature_importance(ft_set, feature_importance,
-                                                                           show_cols=show_cols)
-        x_val = list(range(len(w_lr_sort)))
-        ax = plt.gca()
-        ax.xaxis.grid(False, color="black", linestyle='--', lw=1, alpha=0.5)
-        ax.yaxis.grid(False, color="black", linestyle='--', lw=1, alpha=0.5)
-        ax.set_facecolor("white")
-        ax.tick_params(axis='both', which='major', labelsize=16)
-        plt.xlabel('Feature', fontsize=16)
-        plt.ylabel('Ranking', fontsize=16)
-        plt.xticks(x_val, ft_sorted, rotation='vertical')
-        return fig
+def plot_feature_importance(ft_set, feature_importance, show_cols=30):
+    '''
+    plot feature importance ranking from high to low
+    '''
+    # colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', 'grey']
+    fig = plt.figure(figsize=(12, 4))
+    w_lr_sort, ft_sorted, sorted_index_pos = return_feature_importance(ft_set, feature_importance,
+                                                                       show_cols=show_cols)
+    x_val = list(range(len(w_lr_sort)))
+    ax = plt.gca()
+    plt.bar(x_val, w_lr_sort)
+    # ax.xaxis.grid(False, color="black", linestyle='--', lw=1, alpha=0.5)
+    ax.yaxis.grid(True, color="black", linestyle='--', lw=1, alpha=0.5)
+    ax.set_facecolor("white")
+    ax.tick_params(axis='both', which='major', labelsize=16)
+    plt.xlabel('Feature', fontsize=16)
+    plt.ylabel('Ranking', fontsize=16)
+    plt.xticks(x_val, ft_sorted, rotation='vertical')
 
-    def return_feature_importance(ft_set, feature_importance, show_cols=30):
-        w_lr = copy(np.abs(feature_importance))
-        w_lr = 100 * (w_lr / w_lr.max())
-        sorted_index_pos = [index for index, num in sorted(enumerate(w_lr), key=lambda x: x[-1], reverse=True)]
-        ft_sorted = []
-        w_lr_sort = []
-        for i, idx in enumerate(sorted_index_pos):
-            if i > show_cols:
-                break
-            ft_sorted.append(ft_set[idx])
-            w_lr_sort.append(w_lr[idx])
+    return fig
 
-        return w_lr_sort, ft_sorted, sorted_index_pos
+def return_feature_importance(ft_set, feature_importance, show_cols=30):
+    w_lr = copy(np.abs(feature_importance))
+    w_lr = 100 * (w_lr / w_lr.max())
+    sorted_index_pos = [index for index, num in sorted(enumerate(w_lr), key=lambda x: x[-1], reverse=True)]
+    ft_sorted = []
+    w_lr_sort = []
+    for i, idx in enumerate(sorted_index_pos):
+        if i > show_cols:
+            break
+        ft_sorted.append(ft_set[idx])
+        w_lr_sort.append(w_lr[idx])
+
+    return w_lr_sort, ft_sorted, sorted_index_pos
