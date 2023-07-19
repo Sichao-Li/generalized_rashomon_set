@@ -418,7 +418,9 @@ class fis_explainer:
         ax.tick_params(axis='both', which='major', labelsize=18)
         ax.set_xlabel('FIS', fontsize=18)
         ax.set_ylabel('Interaction Pairs', fontsize=18)
-        ax.figure.colorbar(sm, fraction=0.046, pad=0.04)
+        cbar = ax.figure.colorbar(sm, fraction=0.046, pad=0.04)
+        cbar.ax.tick_params(labelsize=18)
+        cbar.set_label(label='Loss in the Rashomon set', size=18)
         for location in ['left', 'right', 'top', 'bottom']:
             ax.spines[location].set_linewidth(1)
             ax.spines[location].set_color('black')
@@ -442,7 +444,7 @@ class fis_explainer:
         loss_in_r_df = pd.DataFrame(
             np.array(self.rset_main_effect_processed['loss_diff_multi_boundary_e']).transpose((2, 0, 1, 3)).reshape(
                 (len(self.v_list), -1)))
-        fis_ref_l = self.ref_analysis['ref_main_effects']
+        fis_ref_l = np.array(self.ref_analysis['ref_main_effects'])[self.v_list]
         fis_ref_l_df = pd.DataFrame(fis_ref_l)
         fis_in_r_df['Feature'] = FI_name
         loss_in_r_df['Feature'] = FI_name
@@ -484,8 +486,10 @@ class fis_explainer:
         ax.tick_params(axis='both', which='major', labelsize=18)
         ax.set_xlabel('Model reliance', fontsize=18)
         ax.set_ylabel('Features', fontsize=18)
-        # TODO: change legend font size
         ax.figure.colorbar(sm, fraction=0.046, pad=0.04)
+        cbar = ax.figure.colorbar(sm, fraction=0.046, pad=0.04)
+        cbar.ax.tick_params(labelsize=18)
+        cbar.set_label(label='Loss in the Rashomon set', size=18)
         for location in ['left', 'right', 'top', 'bottom']:
             ax.spines[location].set_linewidth(1)
             ax.spines[location].set_color('black')
@@ -542,7 +546,7 @@ class fis_explainer:
         '''
         return a list of universal feature importance ranking from the Rashomon set
         '''
-        return [np.std(i) for i in np.array(self.rset_main_effect_processed['all_main_effects_diff']).transpose((2, 0, 1, 3)).reshape((len(self.v_list), -1))]
+        return [np.std(i) for i in np.array(np.array(self.rset_main_effect_processed['all_main_effects_diff'])[self.v_list]).transpose((2, 0, 1, 3)).reshape((len(self.v_list), -1))]
 
 class fis_explainer_context(fis_explainer):
     '''
