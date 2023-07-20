@@ -120,7 +120,6 @@ class fis_explainer:
         if not isinstance(self.prediction, np.ndarray):
             self.prediction = self.prediction.detach().numpy()
         self.loss = self.loss_fn(loss_fn)
-
         self.epsilon = self.loss*epsilon_rate
         self.all_pairs = find_all_n_way_feature_pairs((self.v_list), n_ways=n_ways)
         # self.m_all, self.points_all_positive, self.points_all_negative, self.main_effects = self.explore_m_in_R(self.epsilon, self.loss, range(len(self.input[-1])), model, input, output, delta=0.1, regression=self.regression)

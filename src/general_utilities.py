@@ -2,7 +2,7 @@ import numpy as np
 from itertools import combinations, product, combinations_with_replacement
 from sklearn.datasets import make_friedman1
 from sklearn.linear_model import LinearRegression, SGDRegressor, Ridge, LogisticRegression
-from sklearn.metrics import mean_squared_error, r2_score, log_loss
+from sklearn.metrics import mean_squared_error, r2_score, log_loss, roc_auc_score
 from sklearn import preprocessing
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, RandomForestClassifier
@@ -37,8 +37,11 @@ def colors_vis(c, lightness=0.5):
 def loss_regression(y_true, y_pred):
     return mean_squared_error(y_true, y_pred, squared=True)
 
-def loss_classification(y_true, y_pred):
-    return log_loss(y_true, y_pred)
+def loss_classification(y_true, y_pred, scoring='log_loss'):
+    if scoring == 'log_loss':
+        return log_loss(y_true, y_pred)
+    if scoring == 'roc_auc':
+        return roc_auc_score(y_true, y_pred)
 
 def pd_to_numpy(X, y):
     if isinstance(X, pd.DataFrame):
