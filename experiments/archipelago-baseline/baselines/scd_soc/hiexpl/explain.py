@@ -1,18 +1,21 @@
-from algo.soc_lstm import SOCForLSTM
-from algo.scd_lstm import CDForLSTM, SCDForLSTM
-from algo.soc_transformer import SOCForTransformer
-from algo.scd_transformer import CDForTransformer, SCDForTransformer
-import torch
 import argparse
+import os
+import random
+
+import torch
+
+from algo.scd_lstm import CDForLSTM, SCDForLSTM
+from algo.scd_transformer import CDForTransformer, SCDForTransformer
+from algo.soc_lstm import SOCForLSTM
+from algo.soc_transformer import SOCForTransformer
+from bert.run_classifier import BertConfig, BertForSequenceClassification
+from nns.model import LSTMMeanRE, LSTMMeanSentiment, LSTMSentiment
 from utils.args import get_args
 from utils.reader import (
     get_data_iterators_sst_flatten,
     get_data_iterators_yelp,
     get_data_iterators_tacred,
 )
-import random, os
-from bert.run_classifier import BertConfig, BertForSequenceClassification
-from nns.model import LSTMMeanRE, LSTMMeanSentiment, LSTMSentiment
 
 
 def get_args_exp():

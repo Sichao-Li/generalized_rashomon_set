@@ -1,3 +1,5 @@
+import copy
+
 import torch
 from algo.cd_func import CD
 from algo.scd_func import CD_gpu, get_lstm_states
@@ -8,7 +10,6 @@ from algo.soc_lstm import (
     append_extra_input,
     normalize_logit,
 )
-import copy
 from utils.args import get_args
 
 args = get_args()

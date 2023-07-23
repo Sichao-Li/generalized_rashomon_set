@@ -1,9 +1,12 @@
+import copy
+
+import numpy as np
+import torch
 from algo.soc_transformer import (
     ExplanationBaseForTransformer,
     SOCForTransformer,
     normalize_logit,
 )
-from bert.run_classifier import BertTokenizer, predict_and_explain_wrapper_unbatched
 from algo.soc_transformer import (
     get_data_iterator_bert,
     bert_id_to_lm_id,
@@ -11,9 +14,7 @@ from algo.soc_transformer import (
     Batch,
 )
 from bert.modeling import global_state_dict
-import torch
-import copy
-import numpy as np
+from bert.run_classifier import BertTokenizer, predict_and_explain_wrapper_unbatched
 from utils.args import get_args
 
 args = get_args()

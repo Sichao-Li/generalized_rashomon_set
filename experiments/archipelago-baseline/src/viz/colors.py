@@ -1,5 +1,5 @@
-import numpy as np
 import matplotlib as mpl
+import numpy as np
 
 
 def pos_neg_colors(get_rgb=False):

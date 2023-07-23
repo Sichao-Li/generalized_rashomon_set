@@ -21,22 +21,21 @@ import argparse
 import logging
 import os
 import random
+import random
 from io import open
 
 import numpy as np
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
 from torch.utils.data import DataLoader, Dataset, RandomSampler
+from torch.utils.data import Dataset
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
 
 from .modeling import BertForPreTraining
-from .tokenization import BertTokenizer
 from .optimization import BertAdam, warmup_linear
-
-from torch.utils.data import Dataset
-import random
+from .tokenization import BertTokenizer
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",

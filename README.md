@@ -3,7 +3,7 @@
 
 This repository includes the implementation of the paper (https://arxiv.org/abs/2305.10181). The paper emphasizes the importance of investigating feature interactions not just in a single predictive model, but across a range of well-performing models, illustrated below.
 
-![FIS in the Rasomon set](./data/FIn_Rset.png)
+![FIS in the Rasomon set](results/FIn_Rset.png)
 
 ## Summary
 
@@ -26,15 +26,21 @@ project
 │   LICENSE
 └───data
 │   │   data_file.csv
-└───src
-│   │   feature_importance_helper.py
-│   │   feature_interaction_score_utilities.py
-│   │   FIS_explainer.py
-│   │   general_utilities.py
-│   │   Image_wrapper.py
-│   │   visulizer.py
+└───grs
+│   │───explainers
+│   │   │    __init__.py
+│   │   │    _explainer.py
+│   │───plots
+│   │   │    __init__.py
+│   │   │    _swarm_plot.py
+│   │   │    _halo_plot.py
+│   │───utils
+│   │   │    __init__.py
+│   │   │    _general_utils.py
+│   │   __init__.py
+│   │   config.py
 └───demo
-│   │   toy_example.ipynb
+│   │   demo.ipynb
 └───experiments
 │   │   ...
 └───logs
@@ -61,6 +67,27 @@ python -r .\requirements
 
 ----
 
+## Installment
+
+```
+pip install -i https://test.pypi.org/simple/ generalized-rashomon-set
+```
+### Usage
+```
+import grs
+
+# train a MLP model
+model =  MLPRegressor(hidden_layer_sizes, max_iter=200).fit(X, y)
+
+# explain the model by exploring the Rashomon set
+explainer = grs.explainers.fis_explainer()
+
+# visualize the predictions
+grs.plots.swarm_plot()
+grs.plots.halo_plot()
+```
+----
+
 ## Demo
 
 A toy example shows how halo plot illustrates the effect of feature interaction 
@@ -69,6 +96,10 @@ in [toy-example.ipynb](.\demo\toy_example.ipynb), results are shown below.
 
 ----
 
-## Experiments
+## Experiments (coming soon)
 
 Code is provided to reproduce the experiments of our paper.
+
+
+
+

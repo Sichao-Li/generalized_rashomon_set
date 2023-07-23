@@ -19,8 +19,9 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import collections
 import logging
 import os
-import unicodedata
 from io import open
+
+import unicodedata
 
 from .file_utils import cached_path
 

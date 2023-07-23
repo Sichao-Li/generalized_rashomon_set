@@ -18,8 +18,9 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import json
 import logging
 import os
-import regex as re
 from io import open
+
+import regex as re
 
 try:
     from functools import lru_cache

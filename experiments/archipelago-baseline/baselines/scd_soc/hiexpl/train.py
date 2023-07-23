@@ -1,13 +1,12 @@
-import time
 import glob
+import random
+import time
 
 import torch.optim as O
 
 from nns.model import *
 from utils.reader import *
 from utils.tacred_f1 import score as tacred_f1_score
-
-import random
 
 random.seed(0)
 

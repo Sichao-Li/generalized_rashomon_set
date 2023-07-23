@@ -1,15 +1,13 @@
-from transformers import Pipeline
 from typing import Dict, List, Optional, Tuple, Union
-from transformers.configuration_utils import PretrainedConfig
-from transformers.tokenization_utils import PreTrainedTokenizer
-from transformers.modelcard import ModelCard
-from transformers.tokenization_auto import AutoTokenizer
+
+import torch
+from transformers import Pipeline
 from transformers.configuration_auto import (
     ALL_PRETRAINED_CONFIG_ARCHIVE_MAP,
     AutoConfig,
 )
-import torch
-
+from transformers.configuration_utils import PretrainedConfig
+from transformers.modelcard import ModelCard
 from transformers.modeling_auto import (
     AutoModel,
     AutoModelForSequenceClassification,
@@ -17,6 +15,8 @@ from transformers.modeling_auto import (
     AutoModelForTokenClassification,
     AutoModelWithLMHead,
 )
+from transformers.tokenization_auto import AutoTokenizer
+from transformers.tokenization_utils import PreTrainedTokenizer
 
 
 class TextClassificationPipeline(Pipeline):

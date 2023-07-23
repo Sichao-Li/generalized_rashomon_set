@@ -1,15 +1,16 @@
 import os
-import torch
+import sys
+
 import numpy as np
-from bert.run_classifier import BertConfig, BertForSequenceClassification
-from algo.soc_transformer import SOCForTransformer
+import torch
 from algo.scd_transformer import CDForTransformer, SCDForTransformer
+from algo.soc_transformer import SOCForTransformer
+from bert.run_classifier import BertConfig, BertForSequenceClassification
 from utils.reader import (
     get_data_iterators_sst_flatten,
     get_data_iterators_yelp,
     get_data_iterators_tacred,
 )
-import sys
 
 sys.path.append("../../src")
 from application_utils.text_utils import prepare_huggingface_data

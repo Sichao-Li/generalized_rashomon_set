@@ -1,13 +1,14 @@
+import copy
+import operator as op
+from functools import reduce
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-import torch.utils.data as data_utils
 import torch.optim as optim
+import torch.utils.data as data_utils
 from torch.nn.parameter import Parameter
-from functools import reduce
-import operator as op
-import copy
 from utils.general_utils import train, get_sample_weights, set_seed, force_float
 
 

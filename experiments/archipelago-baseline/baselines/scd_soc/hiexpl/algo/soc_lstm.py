@@ -1,11 +1,12 @@
-import torch
-from utils.args import get_args
 import copy
-from utils.parser import read_trees_from_corpus, get_span_to_node_mapping
-import pickle
-from utils.agglomeration import *
-from skimage import measure
 import os
+import pickle
+
+import torch
+from skimage import measure
+from utils.agglomeration import *
+from utils.args import get_args
+from utils.parser import read_trees_from_corpus, get_span_to_node_mapping
 
 args = get_args()
 

@@ -37,9 +37,9 @@ from .modeling import (
     WEIGHTS_NAME,
     CONFIG_NAME,
 )
-from .tokenization import BertTokenizer
 from .optimization import BertAdam, warmup_linear
 from .tacred_f1 import score as tacred_f1_score
+from .tokenization import BertTokenizer
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",

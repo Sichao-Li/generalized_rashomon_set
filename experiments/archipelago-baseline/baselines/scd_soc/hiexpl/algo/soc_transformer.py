@@ -1,3 +1,8 @@
+import copy
+import pickle
+
+import numpy as np
+import torch
 from algo.soc_lstm import *
 from bert.run_classifier import (
     BertTokenizer,
@@ -6,13 +11,9 @@ from bert.run_classifier import (
     DataLoader,
 )
 from bert.run_lm_finetuning import BertForPreTraining
-import torch
+from utils.args import get_args
 from utils.parser import get_span_to_node_mapping
 from utils.reader import get_examples_sst, get_examples_yelp, get_examples_tacred
-import numpy as np
-import copy
-import pickle
-from utils.args import get_args
 
 DotDict = Batch
 args = get_args()

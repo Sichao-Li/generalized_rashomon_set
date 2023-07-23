@@ -1,10 +1,11 @@
-from autoint.model import AutoInt
-from application_utils.common_utils import get_efficient_mask_indices
 import os
+import pickle
+
 import numpy as np
+from application_utils.common_utils import get_efficient_mask_indices
+from autoint.model import AutoInt
 from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
-import pickle
 
 
 class AutoIntWrapper:

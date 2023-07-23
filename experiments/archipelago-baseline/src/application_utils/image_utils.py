@@ -1,8 +1,8 @@
-from torchvision import transforms
-import requests
-import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
+import requests
+from torchvision import transforms
 
 matplotlib.rcParams["mathtext.fontset"] = "cm"
 matplotlib.rcParams["font.family"] = "STIXGeneral"

@@ -21,9 +21,8 @@ import os
 import sys
 from io import open
 
-import torch
-
 import pytorch_pretrained_bert.tokenization_transfo_xl as data_utils
+import torch
 from pytorch_pretrained_bert.modeling_transfo_xl import (
     CONFIG_NAME,
     WEIGHTS_NAME,

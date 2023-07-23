@@ -18,13 +18,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import argparse
 import os
 import re
-import argparse
+
+import numpy as np
 import tensorflow as tf
 import torch
-import numpy as np
-
 from pytorch_pretrained_bert.modeling import (
     BertConfig,
     BertForPreTraining,

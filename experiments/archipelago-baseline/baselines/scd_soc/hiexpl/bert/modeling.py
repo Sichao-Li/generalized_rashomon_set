@@ -22,23 +22,22 @@ import json
 import logging
 import math
 import os
+import random
 import shutil
+import sys
 import tarfile
 import tempfile
-import sys
 from io import open
 
-import torch
-from torch import nn
-from torch.nn import CrossEntropyLoss
-import torch.nn.functional as F
-
 import numpy as np
+import torch
+import torch.nn.functional as F
+from torch import nn
+from torch.distributions import Categorical
+from torch.nn import CrossEntropyLoss
 
 from .file_utils import cached_path
 from .global_state import global_state_dict
-import random
-from torch.distributions import Categorical
 
 logger = logging.getLogger(__name__)
 

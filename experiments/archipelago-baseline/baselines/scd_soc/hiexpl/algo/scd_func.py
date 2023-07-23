@@ -1,6 +1,7 @@
-from utils.args import *
-import torch.nn.functional as F
 import torch
+import torch.nn.functional as F
+from utils.args import *
+
 from .cd_func import is_in_intervals, sigmoid, tanh
 
 args = get_args()

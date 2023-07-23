@@ -1,10 +1,12 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import csv
-from utils.parser import get_span_to_node_mapping, parse_tree
-import pickle
 import argparse
+import csv
 import os
+import pickle
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+from utils.parser import get_span_to_node_mapping, parse_tree
 
 
 def len_span(span):

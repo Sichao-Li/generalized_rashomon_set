@@ -1,7 +1,8 @@
-from torch import nn
-import time
 import glob
 import sys
+import time
+
+from torch import nn
 
 sys.path.append("../")
 

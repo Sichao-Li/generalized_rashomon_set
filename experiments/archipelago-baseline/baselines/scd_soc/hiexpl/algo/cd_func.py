@@ -15,11 +15,12 @@
 
 import os
 import pdb
-import torch
-import numpy as np
-from torchtext import data, datasets
 import random
 from math import e
+
+import numpy as np
+import torch
+from torchtext import data, datasets
 from utils.args import args
 
 

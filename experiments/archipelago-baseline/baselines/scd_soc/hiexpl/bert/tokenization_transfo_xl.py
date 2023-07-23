@@ -24,10 +24,10 @@ import os
 import sys
 from collections import Counter, OrderedDict
 from io import open
-import unicodedata
 
-import torch
 import numpy as np
+import torch
+import unicodedata
 
 from .file_utils import cached_path
 

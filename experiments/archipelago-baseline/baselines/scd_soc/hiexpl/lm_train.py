@@ -1,7 +1,6 @@
-import time
 import glob
-
 import sys
+import time
 
 sys.path.append("../")
 

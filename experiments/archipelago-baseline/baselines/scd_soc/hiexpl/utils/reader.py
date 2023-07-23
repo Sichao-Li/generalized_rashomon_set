@@ -1,11 +1,14 @@
-import torchtext as tt
-from nltk import Tree
-import pickle, random
-import torch
-from utils.args import get_args, makedirs
+import csv
+import json
 import os
+import pickle
+import random
+
+import torch
+import torchtext as tt
 from bert.tokenization import BertTokenizer
-import csv, json
+from nltk import Tree
+from utils.args import get_args, makedirs
 
 args = get_args()
 

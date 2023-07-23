@@ -1,8 +1,9 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-import viz.colors as colors
 from textwrap import wrap
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import viz.colors as colors
 
 
 def viz_bar_chart(

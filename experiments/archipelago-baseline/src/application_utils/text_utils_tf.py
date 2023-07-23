@@ -1,11 +1,11 @@
+import numpy as np
 import tensorflow as tf
 from application_utils.text_utils import (
     prepare_huggingface_data,
     get_input_baseline_ids,
 )
-from transformers import glue_convert_examples_to_features
-import numpy as np
 from tqdm import tqdm
+from transformers import glue_convert_examples_to_features
 
 
 class BertWrapper:

@@ -1,9 +1,11 @@
-from torchtext import datasets, data
+import os
+import sys
+from time import time
+
 import matplotlib.pyplot as plt
 import numpy as np
-import os, sys
 import sklearn
-from time import time
+from torchtext import datasets, data
 
 from pipeline_mod import pipeline
 

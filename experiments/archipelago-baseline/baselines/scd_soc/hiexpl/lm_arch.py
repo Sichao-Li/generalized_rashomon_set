@@ -1,7 +1,8 @@
 from torch.distributions import Categorical
+from torch.nn import functional as F
+
 from nns.layers import *
 from utils.args import get_args
-from torch.nn import functional as F
 
 args = get_args()
 
