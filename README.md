@@ -3,7 +3,7 @@
 
 This repository includes the implementation of the paper (https://arxiv.org/abs/2305.10181). The paper emphasizes the importance of investigating feature interactions not just in a single predictive model, but across a range of well-performing models, illustrated below.
 
-![FIS in the Rasomon set](results/FIn_Rset.png)
+![FIS in the Rasomon set](https://github.com/Sichao-Li/generalized_rashomon_set/blob/main/results/FIn_Rset.png)
 
 ## Summary
 
@@ -92,7 +92,7 @@ grs.plots.halo_plot()
 
 A toy example shows how halo plot illustrates the effect of feature interaction 
 in [toy-example.ipynb](.\demo\toy_example.ipynb), results are shown below.
-![Toy example](./demo/x1x2_simple.png)
+![Toy example](https://github.com/Sichao-Li/generalized_rashomon_set/blob/main/results/x1x2_simple.png)
 
 ----
 
