@@ -1,1 +1,2 @@
 from ._context_explainer import fis_explainer_context
+from ._explainer import fis_explainer
