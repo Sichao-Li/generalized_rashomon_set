@@ -1,3 +1,15 @@
+Metadata-Version: 2.1
+Name: generalized-rashomon-set
+Version: 0.0.8
+Summary: Test version of Generalized Rashomon set
+Author-email: Sichao <sichao.li@anu.edu.au>
+Project-URL: Homepage, https://sichao-li.github.io/
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
 # Exploring the Cloud of Feature Interaction Scores in a Rashomon Set
 
 

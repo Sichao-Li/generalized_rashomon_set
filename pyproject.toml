@@ -2,16 +2,13 @@
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-py-modules = ['grs']
-
 [project]
 name = "generalized_rashomon_set"
-version = "0.0.1"
+version = "0.0.8"
 authors = [
   { name="Sichao", email="sichao.li@anu.edu.au" },
 ]
-description = "Generalized Rashomon set"
+description = "Test version of Generalized Rashomon set"
 readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
