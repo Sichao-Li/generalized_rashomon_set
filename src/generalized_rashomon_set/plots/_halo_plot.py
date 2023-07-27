@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from generalized_rashomon_set.config import OUTPUT_DIR
 import numpy as np
 from generalized_rashomon_set.utils import Interaction_effect_calculation, high_order_vis_loss, pairwise_vis_loss
-
+from generalized_rashomon_set.utils import colors_vis
 def halo_plot(explainer, pair_idx, save=False, suffix=''):
     '''
      :param pair_idx: the pair of interest

@@ -7,7 +7,7 @@ from ..config import OUTPUT_DIR, time_str
 from ..utils import find_all_n_way_feature_pairs
 from ..utils import load_json, save_json
 from ..utils import loss_regression, loss_classification
-from ..utils import feature_effect, greedy_search
+from ..utils import feature_effect, greedy_search, MR
 from ..utils import get_all_joint_effects, get_all_main_effects, get_fis_in_r, get_loss_in_r, get_all_m_with_t_in_range
 from ..config import logger
 
@@ -120,11 +120,15 @@ class fis_explainer:
         else:
             return self.output
 
-    def _get_ref_main_effect(self):
+    def _get_ref_main_effect(self, model_reliance=False):
         main_effects_ref = []
+        mr_ref = []
         if not self.softmax:
             for i in self.v_list:
                 X0 = self.input.copy()
+                if model_reliance:
+                    mr = MR(i, X0, self.output, self.model)
+                    mr_ref.append(mr)
                 loss_after, loss_before = feature_effect(i, X0, self.output, self.model, 30, regression=self.regression)
                 main_effects_ref.append(loss_after-loss_before)
         else:
@@ -136,7 +140,8 @@ class fis_explainer:
                 # image_trans._transform(mask_indices, [0, 0, 0, 0, 0, 0, 0, 0])
                 loss_after, loss_before = feature_effect([mask_indices], X0, self.output, self.model, 30, regression=self.regression)
                 main_effects_ref.append(loss_after -loss_before)
-
+        if model_reliance:
+            return main_effects_ref, mr_ref
         return main_effects_ref
 
     def _get_ref_joint_effect(self):
@@ -166,11 +171,6 @@ class fis_explainer:
         '''
         :return: fis of all pairs based on the reference model
         '''
-        self.ref_analysis['ref_main_effects'] = self._get_ref_main_effect()
-        self.logger.info('main effects calculated and can be called by explainer.ref_analysis[''ref_main_effects'']')
-        unimportant_feature_indices = np.where(np.array(self.ref_analysis['ref_main_effects']) == 0)[0]
-        self.logger.info('features with importance 0 are excluded, including {}'.format(unimportant_feature_indices))
-        self.v_list = np.array(list(set(unimportant_feature_indices) ^ set(self.v_list)))
         self.all_pairs = find_all_n_way_feature_pairs((self.v_list), n_ways=self.n_ways)
         self.ref_analysis['ref_joint_effects'] = self._get_ref_joint_effect()
         self.ref_analysis['important_features'] = self.v_list
@@ -223,11 +223,20 @@ class fis_explainer:
         self.logger.info('Searching done and saved to {}'.format(OUTPUT_DIR+'/FIS-main-effect-raw-{}.json').format(self.time_str))
         return m_single_boundary_e, points_all_max, points_all_min, fis_main_single_boundary_e
 
-    def ref_explain(self):
+    def ref_explain(self, model_reliance=False):
         # return reference model analysis
         if self.ref_analysis == {}:
             self.logger.info('Reference model analysis')
             self.logger.info('Calculating main effect, joint effect and FIS for the reference model')
+            if model_reliance:
+                self.ref_analysis['ref_main_effects'], self.ref_analysis['ref_model_reliance'] = self._get_ref_main_effect(model_reliance=True)
+            self.ref_analysis['ref_main_effects'] = self._get_ref_main_effect()
+            self.logger.info(
+                'main effects calculated and can be called by explainer.ref_analysis[''ref_main_effects'']')
+            unimportant_feature_indices = np.where(np.array(self.ref_analysis['ref_main_effects']) == 0)[0]
+            self.logger.info(
+                'features with importance 0 are excluded, including {}'.format(unimportant_feature_indices))
+            self.v_list = np.array(list(set(unimportant_feature_indices) ^ set(self.v_list)))
             self.ref_analysis['ref_fis'] = self._get_ref_fis()
             self.logger.info('FIS calculated and can be called by explainer.ref_analysis')
             self.logger.info('Calculation done')

@@ -1,5 +1,5 @@
 from ._model_wrapper import model_wrapper
-from ._general_utils import feature_effect_context
+from ._general_utils import feature_effect_context, MR
 from ._general_utils import colors_vis
 from ._general_utils import loss_classification, loss_regression
 from ._general_utils import find_all_n_way_feature_pairs, find_all_sum_to_one_pairs
