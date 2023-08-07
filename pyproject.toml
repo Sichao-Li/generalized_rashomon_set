@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "generalized_rashomon_set"
-version = "0.0.12"
+version = "0.0.13"
 authors = [
   { name="Sichao", email="sichao.li@anu.edu.au" },
 ]
