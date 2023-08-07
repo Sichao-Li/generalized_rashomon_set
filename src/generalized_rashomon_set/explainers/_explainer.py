@@ -263,7 +263,7 @@ class fis_explainer:
                 m_multi_boundary_e, loss_diff_multi_boundary_e = get_all_m_with_t_in_range(self.rset_main_effect_raw['points_all_max'],
                                                                self.rset_main_effect_raw['points_all_min'],
                                                                self.epsilon)
-                all_main_effects_ratio, all_main_effects_diff = get_all_main_effects(m_multi_boundary_e,
+                all_main_effects_ratio, all_main_effects_diff, main_effect_complete_list = get_all_main_effects(m_multi_boundary_e,
                                                                                                       self.input, self.output,
                                                                                                       self.model, self.v_list, self.regression)
                 self.logger.info('Calculation done')
@@ -271,6 +271,7 @@ class fis_explainer:
                 self.rset_main_effect_processed['all_main_effects_ratio'] = all_main_effects_ratio
                 self.rset_main_effect_processed['all_main_effects_diff'] = all_main_effects_diff
                 self.rset_main_effect_processed['loss_diff_multi_boundary_e'] = loss_diff_multi_boundary_e
+                self.rset_main_effect_processed['main_effect_complete_list'] = main_effect_complete_list
                 save_json(OUTPUT_DIR + '/FIS-main-effect-processed-{}.json'.format(self.time_str), self.rset_main_effect_processed)
             else:
                 self.logger.info('Already exists, skip')

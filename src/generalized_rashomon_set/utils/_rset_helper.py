@@ -135,11 +135,13 @@ def get_all_main_effects(m_multi_boundary_e, input, output, model, v_list, regre
     :return:
         main_effect_all_ratio: main effects of all features in ratio
         main_effect_all_diff: main effects of all features in difference
+        main_effect_complete_list: main effects of all features in each model
     '''
     main_effect_all_diff = np.zeros(m_multi_boundary_e.shape)
     main_effect_all_ratio = np.zeros(m_multi_boundary_e.shape)
     m_prev = np.inf
     loss_before, loss_after = 1, 1
+    main_effect_complete_list = []
     for idx, sub_boundary_rate in enumerate(np.arange(0.2, 1.2, 0.2)):
         for idxj, j in enumerate(np.arange(0, 1 + 0.1, 0.1)):
             for idxi, i in enumerate(v_list):
@@ -150,11 +152,20 @@ def get_all_main_effects(m_multi_boundary_e, input, output, model, v_list, regre
                         main_effect_all_diff[idx, idxj, idxi, k] = loss_after - loss_before
                     else:
                         X0[:, i] = X0[:, i] * m_multi_boundary_e[idx, idxj, idxi, k]
-                        loss_after, loss_before = feature_effect(i, X0, output, model, 30, regression)
+                        # make sure X1 and X2 are consistent with X0
+                        X1 = X0.copy()
+                        loss_after, loss_before = feature_effect(i, X1, output, model, 30, regression)
                         main_effect_all_ratio[idx, idxj, idxi, k] = loss_after / loss_before
                         main_effect_all_diff[idx, idxj, idxi, k] = loss_after - loss_before
                         m_prev = m_multi_boundary_e[idx, idxj, idxi, k]
-    return main_effect_all_ratio, main_effect_all_diff
+                        sub_list = []
+                        for idxt, t in enumerate(v_list):
+                            X2 = X0.copy()
+                            loss_after, loss_before = feature_effect(t, X2, output, model, 30, regression)
+                            sub_list.append(loss_after - loss_before)
+                        main_effect_complete_list.append(sub_list)
+
+    return main_effect_all_ratio, main_effect_all_diff, main_effect_complete_list
 
 def get_all_joint_effects(m_multi_boundary_e, input, output, v_list, n_ways, model, regression=True):
     '''
