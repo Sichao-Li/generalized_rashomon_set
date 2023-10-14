@@ -2,7 +2,7 @@ import numpy as np
 from ._general_utils import find_all_sum_to_one_pairs, feature_effect, find_all_n_way_feature_pairs
 import itertools
 from ..config import logger
-def Interaction_effect_calculation(feature_idx, model, m_all, X, y, regression=True, subset_idx=None):
+def Interaction_effect_calculation(feature_idx, model, m_all, X, y, loss_fn=None, subset_idx=None):
     '''
     Calculate the feature interaction effect following
     c(x1, x2) = c(x1) + c(x2) + fi(x1, x2) wrt. c(x1) + c(x2) = boundary
@@ -35,12 +35,12 @@ def Interaction_effect_calculation(feature_idx, model, m_all, X, y, regression=T
         for comb in itertools.product(*possibilities):
             X0 = X.copy()
             X0[:, feature_idx] = X0[:, feature_idx] * comb
-            loss_after, loss_before = feature_effect(feature_idx, X0, y, model, shuffle_times=30, regression=regression)
+            loss_after, loss_before = feature_effect(feature_idx, X0, y, model, shuffle_times=30, loss_fn=loss_fn)
             joint_effect_all.append(loss_after-loss_before)
             loss_emp.append(loss_before)
     return joint_effect_all, loss_emp
 
-def Interaction_effect_all_pairs(X, y, vlist, n_ways, model, m_all, regression=True):
+def Interaction_effect_all_pairs(X, y, vlist, n_ways, model, m_all, loss_fn=None):
     '''
     Calculate the feature interaction effect for all pairs.
         Input:
@@ -66,7 +66,7 @@ def Interaction_effect_all_pairs(X, y, vlist, n_ways, model, m_all, regression=T
             subset_idx = subset
         # for sum_to_one_pair in all_sum_to_one_pairs:
             # each subset has 2^n possibilities
-        joint_effect_single_pair, loss_emp_single_pair = Interaction_effect_calculation(subset, model, m_all, X, y, regression=regression, subset_idx=subset_idx)
+        joint_effect_single_pair, loss_emp_single_pair = Interaction_effect_calculation(subset, model, m_all, X, y, loss_fn=loss_fn, subset_idx=subset_idx)
         joint_effect_all_pair.append(joint_effect_single_pair)
         loss_emp_all_pair.append(loss_emp_single_pair)
     return joint_effect_all_pair, loss_emp_all_pair
@@ -128,7 +128,7 @@ def get_all_m_with_t_in_range(points_all_max, points_all_min, epsilon):
     #   np.transpose(1,0,2)
     return m_multi_boundary_e, loss_diff_multi_boundary_e
 
-def get_all_main_effects(m_multi_boundary_e, input, output, model, v_list, regression):
+def get_all_main_effects(m_multi_boundary_e, input, output, model, v_list, loss_fn):
     '''
     :param m_multi_boundary_e: an m matrix in shape [5, 11, n_features, 2]
     :param model: reference model
@@ -154,20 +154,20 @@ def get_all_main_effects(m_multi_boundary_e, input, output, model, v_list, regre
                         X0[:, i] = X0[:, i] * m_multi_boundary_e[idx, idxj, idxi, k]
                         # make sure X1 and X2 are consistent with X0
                         X1 = X0.copy()
-                        loss_after, loss_before = feature_effect(i, X1, output, model, 30, regression)
+                        loss_after, loss_before = feature_effect(i, X1, output, model, 30, loss_fn=loss_fn)
                         main_effect_all_ratio[idx, idxj, idxi, k] = loss_after / loss_before
                         main_effect_all_diff[idx, idxj, idxi, k] = loss_after - loss_before
                         m_prev = m_multi_boundary_e[idx, idxj, idxi, k]
                         sub_list = []
                         for idxt, t in enumerate(v_list):
                             X2 = X0.copy()
-                            loss_after, loss_before = feature_effect(t, X2, output, model, 30, regression)
+                            loss_after, loss_before = feature_effect(t, X2, output, model, 30, loss_fn=loss_fn)
                             sub_list.append(loss_after - loss_before)
                         main_effect_complete_list.append(sub_list)
 
     return main_effect_all_ratio, main_effect_all_diff, main_effect_complete_list
 
-def get_all_joint_effects(m_multi_boundary_e, input, output, v_list, n_ways, model, regression=True):
+def get_all_joint_effects(m_multi_boundary_e, input, output, v_list, n_ways, model, loss_fn=None):
     '''
     :param m_multi_boundary_e: an m matrix in shape [5, 11, n_features, 2]
     :return:
@@ -180,7 +180,7 @@ def get_all_joint_effects(m_multi_boundary_e, input, output, v_list, n_ways, mod
         m_all = m_all.transpose((1, 0, 2))
         joint_effect_all_pair, loss_emp = Interaction_effect_all_pairs(input, output, v_list,
                                                                        n_ways, model, m_all,
-                                                                       regression=regression)
+                                                                       loss_fn=loss_fn)
         joint_effect_all_pair_set.append(joint_effect_all_pair)
         loss_emp_all_pair_set.append(loss_emp)
     return joint_effect_all_pair_set, loss_emp_all_pair_set

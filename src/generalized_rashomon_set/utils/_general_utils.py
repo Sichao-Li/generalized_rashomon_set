@@ -8,8 +8,9 @@ import pandas as pd
 import torch
 from PIL import Image
 from sklearn import metrics
-from sklearn.metrics import mean_squared_error, r2_score, log_loss, roc_auc_score
+from sklearn.metrics import mean_squared_error, r2_score, log_loss, roc_auc_score, mean_absolute_error
 from ..config import logger
+
 
 def colors_vis(c, lightness=0.5):
     default_colors = ["#1E88E5", "#ff0d57", "#13B755", "#7C52FF", "#FFC000", "#00AEEF"]
@@ -23,12 +24,12 @@ def colors_vis(c, lightness=0.5):
     return rgb_color_adjusted
 
 
-def loss_regression(y_true, y_pred):
-    return mean_squared_error(y_true, y_pred, squared=True)
+# def loss_regression(y_true, y_pred):
+#     return mean_squared_error(y_true, y_pred, squared=True)
 
 
-def loss_classification(y_true, y_pred):
-    return roc_auc_score(y_true, y_pred)
+# def loss_classification(y_true, y_pred):
+#     return roc_auc_score(y_true, y_pred)
 
 
 def pd_to_numpy(X, y):
@@ -94,7 +95,21 @@ def MDS(vt_l, n_features_in, n_features_out=2):
     return vt_l_transformed_x, vt_l_transformed_y
 
 
-def loss_shuffle(model, X0, v_idx, y, times=30, regression=True):
+def loss_func(loss_fn, y_true, y_pred):
+    if loss_fn == 'mean_squared_error':
+        return mean_squared_error(y_true, y_pred)
+    elif loss_fn == 'mean_absolute_error':
+        return mean_absolute_error(y_true, y_pred)
+    elif loss_fn == 'r2_score':
+        return r2_score(y_true, y_pred)
+    elif loss_fn == 'log_loss':
+        return log_loss(y_true, y_pred)
+    elif loss_fn == 'roc_auc_score':
+        return roc_auc_score(y_true, y_pred)
+    else:
+        raise ValueError(f'Unknown loss function: {loss_fn}')
+
+def loss_shuffle(model, X0, v_idx, y, times=30, loss_fn=None):
     #     shuffle to evaluate the feature importance
     loss_all = []
     if np.array(v_idx).ndim == 0:
@@ -109,41 +124,54 @@ def loss_shuffle(model, X0, v_idx, y, times=30, regression=True):
                 X0 = Image.fromarray(X0)
             else:
                 np.random.shuffle(X0[:, idx])
+        pred = model.predict(X0)
+        if torch.is_tensor(pred):
+            pred = pred.detach().numpy()
+        loss_shuffle = loss_func(loss_fn, y, pred)
             # X0[:, idx] = -1
-        if regression:
-            pred = model.predict(X0)
-            if torch.is_tensor(pred):
-                pred = pred.detach().numpy()
-            loss_shuffle = loss_regression(y, pred)
-        else:
-            # pred = model.predict_proba(X0)
-            pred = model.predict(X0)
-            if torch.is_tensor(pred):
-                pred = pred.detach().numpy()
-            loss_shuffle = loss_classification(y, pred)
+        # if regression:
+        #     pred = model.predict(X0)
+        #     if torch.is_tensor(pred):
+        #         pred = pred.detach().numpy()
+        #     loss_shuffle = loss_regression(y, pred)
+        # else:
+        #     # pred = model.predict_proba(X0)
+        #     pred = model.predict(X0)
+        #     if torch.is_tensor(pred):
+        #         pred = pred.detach().numpy()
+        #     loss_shuffle = loss_classification(y, pred)
         loss_all.append(loss_shuffle)
     return np.mean(loss_all)
 
+# def feature_effect(v_idx, X0, y, model, shuffle_times=30, regression=True):
+#     # loss before shuffle
+#     if regression:
+#         pred = model.predict(X0)
+#         if torch.is_tensor(pred):
+#             pred = pred.detach().numpy()
+#         loss_before = loss_regression(y, pred)
+#     else:
+#         # pred = model.predict_proba(X0)
+#         pred = model.predict(X0)
+#         if torch.is_tensor(pred):
+#             pred = pred.detach().numpy()
+#         loss_before = loss_classification(y, pred)
+#     # loss after shuffle
+#     loss_after = loss_shuffle(model, X0, v_idx, y, shuffle_times, regression=regression)
+#     return loss_after, loss_before
 
-def feature_effect(v_idx, X0, y, model, shuffle_times=30, regression=True):
+def feature_effect(v_idx, X0, y, model, shuffle_times=30, loss_fn=None):
     # loss before shuffle
-    if regression:
-        pred = model.predict(X0)
-        if torch.is_tensor(pred):
-            pred = pred.detach().numpy()
-        loss_before = loss_regression(y, pred)
-    else:
-        # pred = model.predict_proba(X0)
-        pred = model.predict(X0)
-        if torch.is_tensor(pred):
-            pred = pred.detach().numpy()
-        loss_before = loss_classification(y, pred)
+    pred = model.predict(X0)
+    if torch.is_tensor(pred):
+        pred = pred.detach().numpy()
+    loss_before = loss_func(loss_fn, y, pred)
     # loss after shuffle
-    loss_after = loss_shuffle(model, X0, v_idx, y, shuffle_times, regression=regression)
+    loss_after = loss_shuffle(model, X0, v_idx, y, shuffle_times, loss_fn=loss_fn)
     return loss_after, loss_before
 
 
-def feature_effect_context(vidx, X0, y, model, shuffle_times=30, regression=True, context=1):
+def feature_effect_context(vidx, X0, y, model, shuffle_times=30, loss_fn=None, context=1):
     X1 = X0.copy()
     if isinstance(vidx, int):
         vidx = [vidx]
@@ -152,15 +180,17 @@ def feature_effect_context(vidx, X0, y, model, shuffle_times=30, regression=True
             X1[:, i] = context
         # X1[:, i] = 1
     # loss before shuffle
-    if regression:
-        pred = model.predict(X1)
-        loss_before = loss_regression(y, pred)
-    else:
-        # pred = model.predict_proba(X1)
-        pred = model.predict(X1)
-        loss_before = loss_classification(y, pred)
+    pred = model.predict(X1)
+    loss_before = loss_func(loss_fn, y, pred)
+    # if regression:
+    #     pred = model.predict(X1)
+    #     loss_before = loss_regression(y, pred)
+    # else:
+    #     # pred = model.predict_proba(X1)
+    #     pred = model.predict(X1)
+    #     loss_before = loss_classification(y, pred)
     # loss after shuffle
-    loss_after = loss_shuffle(model, X1, vidx, y, shuffle_times, regression=regression)
+    loss_after = loss_shuffle(model, X1, vidx, y, shuffle_times, loss_fn=loss_fn)
     return loss_after, loss_before
 
 
@@ -196,12 +226,12 @@ def feature_idx_to_pair_idx(all_pairs=None, feature_idx=None, pair_idx=None):
 
 
 def MR(idx, X, y, model):
-    loss_before = loss_classification(y, model.predict(X))
+    loss_before = loss_func('log_loss', y, model.predict(X))
     p = sum(X[:, idx] == 1) / len(X)
     X[:, idx] = 1
-    loss = loss_classification(y, model.predict(X)) * p
+    loss = loss_func('log_loss', y, model.predict(X)) * p
     X[:, idx] = -1
-    loss_after = loss + loss_classification(y, model.predict(X)) * (1 - p)
+    loss_after = loss + loss_func('log_loss', y, model.predict(X)) * (1 - p)
     return loss_after / loss_before
 
 
@@ -225,7 +255,7 @@ def load_json(path):
     return json_data
 
 
-def greedy_search(vidx, bound, loss_ref, model, X, y, delta=0.1, direction=True, regression=True, softmax=False):
+def greedy_search(vidx, bound, loss_ref, model, X, y, delta=0.1, direction=True, loss_fn=None, softmax=False):
     '''
     greedy search possible m for a single feature
         Input:
@@ -269,13 +299,15 @@ def greedy_search(vidx, bound, loss_ref, model, X, y, delta=0.1, direction=True,
                     X0 = X0._transform(vidx, m-lr)
                 else:
                     X0[:, vidx] = X0[:, vidx] * (m - lr)
-            if regression:
-                pred = model.predict(X0)
-                loss_m=loss_regression(y, pred)
-            else:
-                # pred = model.predict_proba(X0)
-                pred = model.predict(X0)
-                loss_m=loss_classification(y, pred)
+            pred = model.predict(X0)
+            loss_m = loss_func(loss_fn, y , pred)
+            # if regression:
+            #     pred = model.predict(X0)
+            #     loss_m=loss_regression(y, pred)
+            # else:
+            #     # pred = model.predict_proba(X0)
+            #     pred = model.predict(X0)
+            #     loss_m=loss_classification(y, pred)
 #             the diffrence of changed loss and optimal loss
             mydiff = loss_m - loss_ref
 
@@ -285,7 +317,7 @@ def greedy_search(vidx, bound, loss_ref, model, X, y, delta=0.1, direction=True,
                     m = m+lr
                 if not direction:
                     m = m-lr
-                loss_after, loss_before = feature_effect(vidx, X0, y, model, 30, regression=regression)
+                loss_after, loss_before = feature_effect(vidx, X0, y, model, 30, loss_fn=loss_fn)
                 fis_main = loss_after - loss_before
                 points.append([m, mydiff])
     #             if the loss within the bound but stays same for loss_count times, then the vt is unimportant (the attribution of the feature is assigned 0, as the power of the single feature is not enough to change loss).
