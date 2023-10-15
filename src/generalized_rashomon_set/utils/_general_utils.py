@@ -8,7 +8,7 @@ import pandas as pd
 import torch
 from PIL import Image
 from sklearn import metrics
-from sklearn.metrics import mean_squared_error, r2_score, log_loss, roc_auc_score, mean_absolute_error
+from sklearn.metrics import mean_squared_error, r2_score, log_loss, roc_auc_score, mean_absolute_error, accuracy_score
 from ..config import logger
 
 
@@ -102,10 +102,14 @@ def loss_func(loss_fn, y_true, y_pred):
         return mean_absolute_error(y_true, y_pred)
     elif loss_fn == 'r2_score':
         return r2_score(y_true, y_pred)
-    elif loss_fn == 'log_loss':
+    elif loss_fn == 'log_loss' or loss_fn == 'log_loss_avg':
         return log_loss(y_true, y_pred)
+    elif loss_fn == 'log_loss_sum':
+        return log_loss(y_true, y_pred, normalize=False)
     elif loss_fn == 'roc_auc_score':
         return roc_auc_score(y_true, y_pred)
+    elif loss_fn == 'accuracy_score':
+        return accuracy_score(y_true, y_pred)
     else:
         raise ValueError(f'Unknown loss function: {loss_fn}')
 
