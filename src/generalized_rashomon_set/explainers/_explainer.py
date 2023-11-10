@@ -9,7 +9,7 @@ from ..utils import load_json, save_json
 from ..utils import loss_func
 # from ..utils import  mean_squared_error, r2_score, log_loss, roc_auc_score, mean_absolute_error
 from ..utils import feature_effect, greedy_search, MR
-from ..utils import get_all_joint_effects, get_all_main_effects, get_fis_in_r, get_loss_in_r, get_all_m_with_t_in_range
+from ..utils import get_all_joint_effects, get_all_main_effects, get_fis_in_r, get_loss_in_r
 from ..config import logger
 import logging
 # TODO: record MR range; choose to save; add delta; fis over rset;
@@ -24,6 +24,7 @@ class fis_explainer:
         n_ways=2,
         feature_idx=None,
         wrapper_for_torch=False,
+        delta=0.1
     ):
         input, output = self.arg_checks(input, output)
         self.logger = logger
@@ -42,7 +43,7 @@ class fis_explainer:
             self.softmax = False
             self.v_list = range(len(self.input[-1]))
         self.loss_fn = loss_fn
-
+        self.delta=delta
 
 
         self.prediction_fn_exist = True
@@ -178,7 +179,7 @@ class fis_explainer:
             fis_ref.append((i, abs(self.ref_analysis['ref_joint_effects'][idx] - self.ref_analysis['ref_main_effects'][i[0]] - self.ref_analysis['ref_main_effects'][i[1]])))
         return fis_ref
 
-    def _explore_m_in_R(self, bound, loss_ref, vlist, model, X, y, delta=0.01):
+    def _explore_m_in_R(self, bound, loss_ref, vlist, model, X, y, delta=0.1):
 
         '''
         Explore the Rashomon set for the black box model by searching m within a boundary.
@@ -190,14 +191,14 @@ class fis_explainer:
                 X,y: data set
                 delta: the parameter splitting from 0 to 1, d=1/delta
             Output:
-                m: possible masks for all features in R, pxdx2
+                m: searching in all features in R, the number of model is pxdx2
                 points_all_positive, points_all_negative: recorded training process
                 fis_main: main effects of all features
         '''
         p = len(vlist)
         d = len(np.arange(0, 1 + 0.1, delta))
         m_single_boundary_e = np.zeros([p, d, 2])
-        fis_main_single_boundary_e = np.zeros([p, d, 2])
+        feature_attribution_main_reference_model = np.zeros([p, d, 2])
         points_all_max = []
         points_all_min = []
         self.logger.info('Searching models in the Rashomon set ...')
@@ -210,15 +211,15 @@ class fis_explainer:
             points_all_min.append(points_min)
             m_single_boundary_e[idx, :, 0] = m_max_single_boundary_e
             m_single_boundary_e[idx, :, 1] = m_min_single_boundary_e
-            fis_main_single_boundary_e[idx, :, 0] = fis_all_plus
-            fis_main_single_boundary_e[idx, :, 1] = fis_all_minus
+            feature_attribution_main_reference_model[idx, :, 0] = fis_all_plus
+            feature_attribution_main_reference_model[idx, :, 1] = fis_all_minus
         self.rset_main_effect_raw['m_single_boundary_e'] = m_single_boundary_e
         self.rset_main_effect_raw['points_all_max'] = points_all_max
         self.rset_main_effect_raw['points_all_min'] = points_all_min
-        self.rset_main_effect_raw['fis_main_single_boundary_e'] = fis_main_single_boundary_e
+        self.rset_main_effect_raw['feature_attribution_main_reference_model'] = feature_attribution_main_reference_model
         save_json(OUTPUT_DIR +'/FIS-main-effect-raw-{}.json'.format(self.name_id), self.rset_main_effect_raw)
         self.logger.info('Searching done and saved to {}'.format(OUTPUT_DIR+'/FIS-main-effect-raw-{}.json').format(self.name_id))
-        return m_single_boundary_e, points_all_max, points_all_min, fis_main_single_boundary_e
+        return m_single_boundary_e, points_all_max, points_all_min, feature_attribution_main_reference_model
 
     def ref_explain(self, model_reliance=False):
         # return reference model analysis
@@ -238,6 +239,8 @@ class fis_explainer:
             self.logger.info('FIS calculated and can be called by explainer.ref_analysis')
             self.logger.info('Calculation done')
             save_json(OUTPUT_DIR+'/Ref-in-Rashomon-set-analysis-{}.json'.format(self.name_id), self.ref_analysis)
+
+
     def rset_explain(self, main_effect=True, interaction_effect=True):
         '''
         Find the range of FIS for each pair of features in the Rashomon set
@@ -249,19 +252,22 @@ class fis_explainer:
             if self.rset_main_effect_raw == {}:
                 self._explore_m_in_R(
                     self.epsilon, self.loss, self.v_list, self.model, self.input,
-                    self.output, delta=0.1)
+                    self.output, delta=self.delta)
             else:
                 self.logger.info('Already exists, skip')
             self.logger.info('Calculating all main effects of features {} for all models in the Rashomon set'.format(self.v_list))
 
 
             if self.rset_main_effect_processed == {}:
-                m_multi_boundary_e, loss_diff_multi_boundary_e = get_all_m_with_t_in_range(self.rset_main_effect_raw['points_all_max'],
-                                                               self.rset_main_effect_raw['points_all_min'],
-                                                               self.epsilon)
+                m_multi_boundary_e, loss_diff_multi_boundary_e = self.rset_main_effect_raw['m_single_boundary_e'], self.rset_main_effect_raw['feature_attribution_main_reference_model']
+                m_multi_boundary_e = np.array(m_multi_boundary_e).transpose((1, 0, 2))
+                loss_diff_multi_boundary_e = np.array(loss_diff_multi_boundary_e).transpose((1, 0, 2))
+                    # get_all_m_with_t_in_range(self.rset_main_effect_raw['points_all_max'],
+                    #                                            self.rset_main_effect_raw['points_all_min'],
+                    #                                            self.epsilon)
                 all_main_effects_ratio, all_main_effects_diff, main_effect_complete_list = get_all_main_effects(m_multi_boundary_e,
                                                                                                       self.input, self.output,
-                                                                                                      self.model, self.v_list, self.loss_fn)
+                                                                                                      self.model, self.v_list, self.loss_fn, self.delta)
                 self.logger.info('Calculation done')
                 self.rset_main_effect_processed['m_multi_boundary_e'] = m_multi_boundary_e
                 self.rset_main_effect_processed['all_main_effects_ratio'] = all_main_effects_ratio

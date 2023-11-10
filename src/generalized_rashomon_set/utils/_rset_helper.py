@@ -99,39 +99,78 @@ def list_flatten(list, reverse):
         list_reshaped.append(sorted(flat_list, reverse=reverse))
     return list_reshaped
 
-def get_all_m_with_t_in_range(points_all_max, points_all_min, epsilon):
-    '''
-    :return: an m matrix in shape [5, 11, n_features, 2] corresponding to sub-dominant boundary, e.g. 0.2 * epsilon
-    '''
-    points_all_positive_reshaped = list_flatten(points_all_max, reverse=False)
-    points_all_negative_reshaped = list_flatten(points_all_min, reverse=True)
-    p = len(np.arange(0.2, 1 + 0.2, 0.2))
-    d = len(np.arange(0.0, 1 + 0.1, 0.1))
-    n_features = len(points_all_min)
-    m_multi_boundary_e = np.ones([p, d, n_features, 2], dtype=np.float64)
-    loss_diff_multi_boundary_e = np.ones([p, d, n_features, 2], dtype=np.float64)
-    for idxj, sub_boundary_rate in enumerate(np.arange(0.2, 1 + 0.2, 0.2)):
-        for idxk, j in enumerate(np.arange(0.0, 1 + 0.1, 0.1)):
-            for idxi, feature in enumerate(points_all_positive_reshaped):
-                for idv in (feature):
-                    if idv[-1] <= j * sub_boundary_rate * epsilon:
-                        m_multi_boundary_e[idxj, idxk, idxi, 0] = idv[0]
-                        loss_diff_multi_boundary_e[idxj, idxk, idxi, 0] = idv[-1]
-                    else:
-                        break
-            for idxi, feature in enumerate(points_all_negative_reshaped):
-                for idv in (feature):
-                    if idv[-1] <= j * sub_boundary_rate * epsilon:
-                        m_multi_boundary_e[idxj, idxk, idxi, 1] = idv[0]
-                        loss_diff_multi_boundary_e[idxj, idxk, idxi, 1] = idv[-1]
-                    else:
-                        break
-    #   np.transpose(1,0,2)
-    return m_multi_boundary_e, loss_diff_multi_boundary_e
+# def get_all_m_with_t_in_range(points_all_max, points_all_min, epsilon):
+#     '''
+#     :return: an m matrix in shape [5, 11, n_features, 2] corresponding to sub-dominant boundary, e.g. 0.2 * epsilon
+#     '''
+#     points_all_positive_reshaped = list_flatten(points_all_max, reverse=False)
+#     points_all_negative_reshaped = list_flatten(points_all_min, reverse=True)
+#     p = len(np.arange(0.2, 1 + 0.2, 0.2))
+#     d = len(np.arange(0.0, 1 + 0.1, 0.1))
+#     n_features = len(points_all_min)
+#     m_multi_boundary_e = np.ones([p, d, n_features, 2], dtype=np.float64)
+#     loss_diff_multi_boundary_e = np.ones([p, d, n_features, 2], dtype=np.float64)
+#     for idxj, sub_boundary_rate in enumerate(np.arange(0.2, 1 + 0.2, 0.2)):
+#         for idxk, j in enumerate(np.arange(0.0, 1 + 0.1, 0.1)):
+#             for idxi, feature in enumerate(points_all_positive_reshaped):
+#                 for idv in (feature):
+#                     if idv[-1] <= j * sub_boundary_rate * epsilon:
+#                         m_multi_boundary_e[idxj, idxk, idxi, 0] = idv[0]
+#                         loss_diff_multi_boundary_e[idxj, idxk, idxi, 0] = idv[-1]
+#                     else:
+#                         break
+#             for idxi, feature in enumerate(points_all_negative_reshaped):
+#                 for idv in (feature):
+#                     if idv[-1] <= j * sub_boundary_rate * epsilon:
+#                         m_multi_boundary_e[idxj, idxk, idxi, 1] = idv[0]
+#                         loss_diff_multi_boundary_e[idxj, idxk, idxi, 1] = idv[-1]
+#                     else:
+#                         break
+#     #   np.transpose(1,0,2)
+#     return m_multi_boundary_e, loss_diff_multi_boundary_e
 
-def get_all_main_effects(m_multi_boundary_e, input, output, model, v_list, loss_fn):
+# def get_all_main_effects(m_multi_boundary_e, input, output, model, v_list, loss_fn):
+#     '''
+#     :param m_multi_boundary_e: an m matrix in shape [5, 11, n_features, 2]
+#     :param model: reference model
+#     :return:
+#         main_effect_all_ratio: main effects of all features in ratio
+#         main_effect_all_diff: main effects of all features in difference
+#         main_effect_complete_list: main effects of all features in all models
+#     '''
+#     main_effect_all_diff = np.zeros(m_multi_boundary_e.shape)
+#     main_effect_all_ratio = np.zeros(m_multi_boundary_e.shape)
+#     m_prev = np.inf
+#     loss_before, loss_after = 1, 1
+#     main_effect_complete_list = []
+#     for idx, sub_boundary_rate in enumerate(np.arange(0.2, 1.2, 0.2)):
+#         for idxj, j in enumerate(np.arange(0, 1 + 0.1, 0.1)):
+#             for idxi, i in enumerate(v_list):
+#                 for k in range(2):
+#                     X0 = input.copy()
+#                     if m_multi_boundary_e[idx, idxj, idxi, k] == m_prev:
+#                         main_effect_all_ratio[idx, idxj, idxi, k] = loss_after / loss_before
+#                         main_effect_all_diff[idx, idxj, idxi, k] = loss_after - loss_before
+#                     else:
+#                         X0[:, i] = X0[:, i] * m_multi_boundary_e[idx, idxj, idxi, k]
+#                         # make sure X1 and X2 are consistent with X0
+#                         X1 = X0.copy()
+#                         loss_after, loss_before = feature_effect(i, X1, output, model, 30, loss_fn=loss_fn)
+#                         main_effect_all_ratio[idx, idxj, idxi, k] = loss_after / loss_before
+#                         main_effect_all_diff[idx, idxj, idxi, k] = loss_after - loss_before
+#                         m_prev = m_multi_boundary_e[idx, idxj, idxi, k]
+#                         sub_list = []
+#                         for idxt, t in enumerate(v_list):
+#                             X2 = X0.copy()
+#                             loss_after, loss_before = feature_effect(t, X2, output, model, 30, loss_fn=loss_fn)
+#                             sub_list.append(loss_after - loss_before)
+#                         main_effect_complete_list.append(sub_list)
+#
+#     return main_effect_all_ratio, main_effect_all_diff, main_effect_complete_list
+
+def get_all_main_effects(m_multi_boundary_e, input, output, model, v_list, loss_fn, delta):
     '''
-    :param m_multi_boundary_e: an m matrix in shape [5, 11, n_features, 2]
+    :param m_multi_boundary_e: an m matrix in shape [p, d, 2]
     :param model: reference model
     :return:
         main_effect_all_ratio: main effects of all features in ratio
@@ -143,48 +182,96 @@ def get_all_main_effects(m_multi_boundary_e, input, output, model, v_list, loss_
     m_prev = np.inf
     loss_before, loss_after = 1, 1
     main_effect_complete_list = []
-    for idx, sub_boundary_rate in enumerate(np.arange(0.2, 1.2, 0.2)):
-        for idxj, j in enumerate(np.arange(0, 1 + 0.1, 0.1)):
-            for idxi, i in enumerate(v_list):
-                for k in range(2):
-                    X0 = input.copy()
-                    if m_multi_boundary_e[idx, idxj, idxi, k] == m_prev:
-                        main_effect_all_ratio[idx, idxj, idxi, k] = loss_after / loss_before
-                        main_effect_all_diff[idx, idxj, idxi, k] = loss_after - loss_before
-                    else:
-                        X0[:, i] = X0[:, i] * m_multi_boundary_e[idx, idxj, idxi, k]
-                        # make sure X1 and X2 are consistent with X0
-                        X1 = X0.copy()
-                        loss_after, loss_before = feature_effect(i, X1, output, model, 30, loss_fn=loss_fn)
-                        main_effect_all_ratio[idx, idxj, idxi, k] = loss_after / loss_before
-                        main_effect_all_diff[idx, idxj, idxi, k] = loss_after - loss_before
-                        m_prev = m_multi_boundary_e[idx, idxj, idxi, k]
-                        sub_list = []
-                        for idxt, t in enumerate(v_list):
-                            X2 = X0.copy()
-                            loss_after, loss_before = feature_effect(t, X2, output, model, 30, loss_fn=loss_fn)
-                            sub_list.append(loss_after - loss_before)
-                        main_effect_complete_list.append(sub_list)
+    for idxj, j in enumerate(np.arange(0, 1 + 0.1, delta)):
+        for idxi, i in enumerate(v_list):
+            for k in range(2):
+                X0 = input.copy()
+                if m_multi_boundary_e[idxj, idxi, k] == m_prev:
+                    main_effect_all_ratio[idxj, idxi, k] = loss_after / loss_before
+                    main_effect_all_diff[idxj, idxi, k] = loss_after - loss_before
+                else:
+                    X0[:, i] = X0[:, i] * m_multi_boundary_e[idxj, idxi, k]
+                    # make sure X1 and X2 are consistent with X0
+                    X1 = X0.copy()
+                    loss_after, loss_before = feature_effect(i, X1, output, model, 30, loss_fn=loss_fn)
+                    main_effect_all_ratio[idxj, idxi, k] = loss_after / loss_before
+                    main_effect_all_diff[idxj, idxi, k] = loss_after - loss_before
+                    m_prev = m_multi_boundary_e[idxj, idxi, k]
+                    sub_list = []
+                    for idxt, t in enumerate(v_list):
+                        X2 = X0.copy()
+                        loss_after, loss_before = feature_effect(t, X2, output, model, 30, loss_fn=loss_fn)
+                        sub_list.append(loss_after - loss_before)
+                    main_effect_complete_list.append(sub_list)
 
     return main_effect_all_ratio, main_effect_all_diff, main_effect_complete_list
 
+
+# def get_all_joint_effects(m_multi_boundary_e, input, output, v_list, n_ways, model, loss_fn=None):
+#     '''
+#     :param m_multi_boundary_e: an m matrix in shape [5, 11, n_features, 2]
+#     :return:
+#         joint_effect_all_pair_set: all joint effects of features [5, n_joint_pairs, 36] in fis, where 36 is 2^2*9
+#         loss_emp_all_pair_set: all joint effects of features [5, n_joint_pairs, 36] in loss
+#     '''
+#     joint_effect_all_pair_set = []
+#     loss_emp_all_pair_set = []
+#     for m_all in m_multi_boundary_e:
+#         m_all = m_all.transpose((1, 0, 2))
+#         joint_effect_all_pair, loss_emp = Interaction_effect_all_pairs(input, output, v_list,
+#                                                                        n_ways, model, m_all,
+#                                                                        loss_fn=loss_fn)
+#         joint_effect_all_pair_set.append(joint_effect_all_pair)
+#         loss_emp_all_pair_set.append(loss_emp)
+#     return joint_effect_all_pair_set, loss_emp_all_pair_set
 def get_all_joint_effects(m_multi_boundary_e, input, output, v_list, n_ways, model, loss_fn=None):
     '''
-    :param m_multi_boundary_e: an m matrix in shape [5, 11, n_features, 2]
+    :param m_multi_boundary_e: an m matrix in shape [p, d, 2]
     :return:
         joint_effect_all_pair_set: all joint effects of features [5, n_joint_pairs, 36] in fis, where 36 is 2^2*9
         loss_emp_all_pair_set: all joint effects of features [5, n_joint_pairs, 36] in loss
     '''
     joint_effect_all_pair_set = []
     loss_emp_all_pair_set = []
-    for m_all in m_multi_boundary_e:
-        m_all = m_all.transpose((1, 0, 2))
-        joint_effect_all_pair, loss_emp = Interaction_effect_all_pairs(input, output, v_list,
-                                                                       n_ways, model, m_all,
-                                                                       loss_fn=loss_fn)
-        joint_effect_all_pair_set.append(joint_effect_all_pair)
-        loss_emp_all_pair_set.append(loss_emp)
-    return joint_effect_all_pair_set, loss_emp_all_pair_set
+    # for m_all in m_multi_boundary_e:
+    m_multi_boundary_e = m_multi_boundary_e.transpose((1, 0, 2))
+    joint_effect_all_pair, loss_emp = Interaction_effect_all_pairs(input, output, v_list,
+                                                                   n_ways, model, m_multi_boundary_e,
+                                                                   loss_fn=loss_fn)
+    # joint_effect_all_pair_set.append(joint_effect_all_pair)
+    # loss_emp_all_pair_set.append(loss_emp)
+    return joint_effect_all_pair, loss_emp
+
+
+# def get_fis_in_r(all_pairs, joint_effect_all_pair_set, main_effect_all_diff, n_ways, quadrants):
+#     '''
+#     :param pairs: all pairs of interest
+#     :param joint_effect_all_pair_set: all joint effects of these pairs [5, n_pairs, 36]
+#     :param main_effect_all_diff: all main effects of these features in the pair [5, 11, n_features, 2]
+#     :return: fis of all pairs in the Rashomon set
+#     '''
+#     fis_rset = np.ones(joint_effect_all_pair_set.shape)
+#     for i in range(5):
+#         joint_effect_all_pair_e = joint_effect_all_pair_set[i]  # [n_pairs, 36]
+#         main_effect_all_diff_e = main_effect_all_diff[i]  # [11, n_features, 2]
+#         main_effect_all_diff_e_reshaped = main_effect_all_diff_e.transpose((1, 0, 2))  # [n_features, 11, 2]
+#         all_pairs_mask = find_all_n_way_feature_pairs((range(len(main_effect_all_diff_e_reshaped))), n_ways=n_ways)
+#         # fi is n_featurex11x2, fij_joint is n_pairx36
+#         for idx, pair in enumerate(all_pairs):
+#             logger.info('Calculating :pair {} with index {} and {}'.format(idx, pair[0], pair[1]))
+#             fij_joint = joint_effect_all_pair_e[idx]
+#             fi = main_effect_all_diff_e_reshaped[all_pairs_mask[idx][0]]
+#             fj = main_effect_all_diff_e_reshaped[all_pairs_mask[idx][1]]
+#             # 9 paris
+#             sum_to_one = find_all_sum_to_one_pairs(n_ways)
+#             for idxk, sum in enumerate(sum_to_one):
+#                 for idxq, quadrant in enumerate(quadrants):
+#                     # for each pair, find the main effect
+#                     single_fis = abs(
+#                         fij_joint[[idxk * 4 + quadrant]] - fi[sum[0]][quadrants[quadrant][0]] - fj[sum[-1]][
+#                             quadrants[quadrant][-1]])
+#                     fis_rset[i, idx, idxk * 4 + quadrant] = single_fis
+#     return fis_rset.transpose((1, 0, 2)).reshape(len(all_pairs), -1)
 
 def get_fis_in_r(all_pairs, joint_effect_all_pair_set, main_effect_all_diff, n_ways, quadrants):
     '''
@@ -194,27 +281,49 @@ def get_fis_in_r(all_pairs, joint_effect_all_pair_set, main_effect_all_diff, n_w
     :return: fis of all pairs in the Rashomon set
     '''
     fis_rset = np.ones(joint_effect_all_pair_set.shape)
-    for i in range(5):
-        joint_effect_all_pair_e = joint_effect_all_pair_set[i]  # [n_pairs, 36]
-        main_effect_all_diff_e = main_effect_all_diff[i]  # [11, n_features, 2]
-        main_effect_all_diff_e_reshaped = main_effect_all_diff_e.transpose((1, 0, 2))  # [n_features, 11, 2]
-        all_pairs_mask = find_all_n_way_feature_pairs((range(len(main_effect_all_diff_e_reshaped))), n_ways=n_ways)
-        # fi is n_featurex11x2, fij_joint is n_pairx36
-        for idx, pair in enumerate(all_pairs):
-            logger.info('Calculating :pair {} with index {} and {}'.format(idx, pair[0], pair[1]))
-            fij_joint = joint_effect_all_pair_e[idx]
-            fi = main_effect_all_diff_e_reshaped[all_pairs_mask[idx][0]]
-            fj = main_effect_all_diff_e_reshaped[all_pairs_mask[idx][1]]
-            # 9 paris
-            sum_to_one = find_all_sum_to_one_pairs(n_ways)
-            for idxk, sum in enumerate(sum_to_one):
-                for idxq, quadrant in enumerate(quadrants):
-                    # for each pair, find the main effect
-                    single_fis = abs(
-                        fij_joint[[idxk * 4 + quadrant]] - fi[sum[0]][quadrants[quadrant][0]] - fj[sum[-1]][
-                            quadrants[quadrant][-1]])
-                    fis_rset[i, idx, idxk * 4 + quadrant] = single_fis
-    return fis_rset.transpose((1, 0, 2)).reshape(len(all_pairs), -1)
+    joint_effect_all_pair_e = joint_effect_all_pair_set  # [n_pairs, 36]
+    main_effect_all_diff_e = main_effect_all_diff  # [11, n_features, 2]
+    main_effect_all_diff_e_reshaped = main_effect_all_diff_e.transpose((1, 0, 2))  # [n_features, 11, 2]
+    all_pairs_mask = find_all_n_way_feature_pairs((range(len(main_effect_all_diff_e_reshaped))), n_ways=n_ways)
+    # fi is n_featurex11x2, fij_joint is n_pairx36
+    for idx, pair in enumerate(all_pairs):
+        logger.info('Calculating :pair {} with index {} and {}'.format(idx, pair[0], pair[1]))
+        fij_joint = joint_effect_all_pair_e[idx]
+        fi = main_effect_all_diff_e_reshaped[all_pairs_mask[idx][0]]
+        fj = main_effect_all_diff_e_reshaped[all_pairs_mask[idx][1]]
+        # 9 paris
+        sum_to_one = find_all_sum_to_one_pairs(n_ways)
+        for idxk, sum in enumerate(sum_to_one):
+            for idxq, quadrant in enumerate(quadrants):
+                # for each pair, find the main effect
+                single_fis = abs(
+                    fij_joint[[idxk * 4 + quadrant]] - fi[sum[0]][quadrants[quadrant][0]] - fj[sum[-1]][
+                        quadrants[quadrant][-1]])
+                fis_rset[idx, idxk * 4 + quadrant] = single_fis
+    return fis_rset
+
+# def get_loss_in_r(all_pairs, joint_loss_pair_set, n_ways, quadrants, epsilon, loss):
+#     '''
+#     :param pairs: all pairs of interest
+#     :param joint_loss_pair_set: all joint losses of these pairs
+#     :return: loss difference of all pairs in the Rashomon set
+#     '''
+#     loss_rset = np.ones(joint_loss_pair_set.shape)
+#     for i, e_sub in enumerate(np.arange(0.2, 1.2, 0.2)):
+#         joint_effect_all_pair_e = joint_loss_pair_set[i]
+#         for idx, pair in enumerate(all_pairs):
+#             fij_joint = joint_effect_all_pair_e[idx]
+#             # 9 paris
+#             sum_to_one = find_all_sum_to_one_pairs(n_ways)
+#             for idxk, sum in enumerate(sum_to_one):
+#                 for idxq, quadrant in enumerate(quadrants):
+#                     # for each pair, find the main effect
+#                     single_fis = abs(
+#                         fij_joint[[idxk * 4 + quadrant]] - e_sub * epsilon - loss)
+#                     # single_fis = (
+#                     #     fij_joint[[idxk * 4 + quadrant]] - e_sub*self.epsilon-self.loss)
+#                     loss_rset[i, idx, idxk * 4 + quadrant] = single_fis
+#     return loss_rset.transpose((1, 0, 2)).reshape(len(all_pairs), -1)
 
 def get_loss_in_r(all_pairs, joint_loss_pair_set, n_ways, quadrants, epsilon, loss):
     '''
@@ -223,21 +332,19 @@ def get_loss_in_r(all_pairs, joint_loss_pair_set, n_ways, quadrants, epsilon, lo
     :return: loss difference of all pairs in the Rashomon set
     '''
     loss_rset = np.ones(joint_loss_pair_set.shape)
-    for i, e_sub in enumerate(np.arange(0.2, 1.2, 0.2)):
-        joint_effect_all_pair_e = joint_loss_pair_set[i]
-        for idx, pair in enumerate(all_pairs):
-            fij_joint = joint_effect_all_pair_e[idx]
-            # 9 paris
-            sum_to_one = find_all_sum_to_one_pairs(n_ways)
-            for idxk, sum in enumerate(sum_to_one):
-                for idxq, quadrant in enumerate(quadrants):
-                    # for each pair, find the main effect
-                    single_fis = abs(
-                        fij_joint[[idxk * 4 + quadrant]] - e_sub * epsilon - loss)
-                    # single_fis = (
-                    #     fij_joint[[idxk * 4 + quadrant]] - e_sub*self.epsilon-self.loss)
-                    loss_rset[i, idx, idxk * 4 + quadrant] = single_fis
-    return loss_rset.transpose((1, 0, 2)).reshape(len(all_pairs), -1)
+    joint_effect_all_pair_e = joint_loss_pair_set
+    for idx, pair in enumerate(all_pairs):
+        fij_joint = joint_effect_all_pair_e[idx]
+        # 9 paris
+        sum_to_one = find_all_sum_to_one_pairs(n_ways)
+        for idxk, sum in enumerate(sum_to_one):
+            for idxq, quadrant in enumerate(quadrants):
+                # for each pair, find the main effect
+                single_fis = abs(
+                    fij_joint[[idxk * 4 + quadrant]] - epsilon - loss)
+                loss_rset[idx, idxk * 4 + quadrant] = single_fis
+    return loss_rset
+
 
 def high_order_vis_loss(loss_emp_all, boundary, n_ways, loss_ref):
     loss_main_all = np.arange(0, 1+0.1, 0.1) * boundary

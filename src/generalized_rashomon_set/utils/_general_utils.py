@@ -278,6 +278,7 @@ def greedy_search(vidx, bound, loss_ref, model, X, y, delta=0.1, direction=True,
         Output:
             m_all: m for a feature in a nx2 matrix
             points_all: recorded points when exploring
+            fis_all: fis for reference model
     '''
     m_all = []
     points_all = []
@@ -285,7 +286,7 @@ def greedy_search(vidx, bound, loss_ref, model, X, y, delta=0.1, direction=True,
     loss_temp = 0
 #     count the tolerance
     loss_count = 0
-    fis_main = 1
+    feature_attribution_main = 0
 #   for single feature at position m
     m = 1
     for i in np.arange(0, 1+0.1, delta):
@@ -310,13 +311,6 @@ def greedy_search(vidx, bound, loss_ref, model, X, y, delta=0.1, direction=True,
                     X0[:, vidx] = X0[:, vidx] * (m - lr)
             pred = model.predict(X0)
             loss_m = loss_func(loss_fn, y, pred)
-            # if regression:
-            #     pred = model.predict(X0)
-            #     loss_m=loss_regression(y, pred)
-            # else:
-            #     # pred = model.predict_proba(X0)
-            #     pred = model.predict(X0)
-            #     loss_m=loss_classification(y, pred)
 #             the diffrence of changed loss and optimal loss
             mydiff = loss_m - loss_ref
 
@@ -327,13 +321,13 @@ def greedy_search(vidx, bound, loss_ref, model, X, y, delta=0.1, direction=True,
                 if not direction:
                     m = m-lr
                 loss_after, loss_before = feature_effect(vidx, X0, y, model, 30, loss_fn=loss_fn)
-                fis_main = loss_after - loss_before
+                feature_attribution_main = loss_after - loss_before
                 points.append([m, mydiff])
     #             if the loss within the bound but stays same for loss_count times, then the vt is unimportant (the attribution of the feature is assigned 0, as the power of the single feature is not enough to change loss).
                 if loss_temp == loss_m:
                     loss_count = loss_count+1
                     if loss_count > 100:
-                        fis_main = 0
+                        feature_attribution_main = 0
                         break
                 else:
                     loss_temp = loss_m
@@ -345,5 +339,5 @@ def greedy_search(vidx, bound, loss_ref, model, X, y, delta=0.1, direction=True,
         points_all.append(points)
         m_all.append(m)
         # calculate fis based on m
-        fis_all.append(fis_main)
+        fis_all.append(feature_attribution_main)
     return m_all, points_all, fis_all
