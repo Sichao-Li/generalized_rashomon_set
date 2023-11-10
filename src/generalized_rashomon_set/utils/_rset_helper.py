@@ -60,12 +60,13 @@ def Interaction_effect_all_pairs(X, y, vlist, n_ways, model, m_all, loss_fn=None
     loss_emp_all_pair = []
     for subset in all_n_way_feature_subsets:
         # for each pair, find interaction effect and loss
-        if subset[0] != 0:
-            subset_idx = np.nonzero(np.in1d(vlist, subset))[0]
-        else:
-            subset_idx = subset
+        # if subset[0] != 0:
+        #     subset_idx = np.nonzero(np.in1d(vlist, subset))[0]
+        # else:
+        #     subset_idx = subset
         # for sum_to_one_pair in all_sum_to_one_pairs:
             # each subset has 2^n possibilities
+        subset_idx = np.nonzero(np.in1d(vlist, subset))[0]
         joint_effect_single_pair, loss_emp_single_pair = Interaction_effect_calculation(subset, model, m_all, X, y, loss_fn=loss_fn, subset_idx=subset_idx)
         joint_effect_all_pair.append(joint_effect_single_pair)
         loss_emp_all_pair.append(loss_emp_single_pair)
@@ -135,7 +136,7 @@ def get_all_main_effects(m_multi_boundary_e, input, output, model, v_list, loss_
     :return:
         main_effect_all_ratio: main effects of all features in ratio
         main_effect_all_diff: main effects of all features in difference
-        main_effect_complete_list: main effects of all features in each model
+        main_effect_complete_list: main effects of all features in all models
     '''
     main_effect_all_diff = np.zeros(m_multi_boundary_e.shape)
     main_effect_all_ratio = np.zeros(m_multi_boundary_e.shape)

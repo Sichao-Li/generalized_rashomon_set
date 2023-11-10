@@ -11,7 +11,8 @@ from ..utils import loss_func
 from ..utils import feature_effect, greedy_search, MR
 from ..utils import get_all_joint_effects, get_all_main_effects, get_fis_in_r, get_loss_in_r, get_all_m_with_t_in_range
 from ..config import logger
-
+import logging
+# TODO: record MR range; choose to save; add delta; fis over rset;
 class fis_explainer:
     def __init__(
         self,
@@ -31,7 +32,7 @@ class fis_explainer:
         self.quadrants = {0: [0, 0], 1: [0, 1], 2: [1, 0], 3: [1, 1]}
         self.input = input
         self.output = output
-        self.time_str = time_str
+        self.name_id = time_str+'-{}-{}'.format(loss_fn,epsilon_rate)
         self.logger.info('You can call function explainer.load_results(results_path="") to load trained results if exist')
         if hasattr(input, 'num_features'):
             self.v_list = range(input.num_features)
@@ -215,8 +216,8 @@ class fis_explainer:
         self.rset_main_effect_raw['points_all_max'] = points_all_max
         self.rset_main_effect_raw['points_all_min'] = points_all_min
         self.rset_main_effect_raw['fis_main_single_boundary_e'] = fis_main_single_boundary_e
-        save_json(OUTPUT_DIR +'/FIS-main-effect-raw-{}.json'.format(self.time_str), self.rset_main_effect_raw)
-        self.logger.info('Searching done and saved to {}'.format(OUTPUT_DIR+'/FIS-main-effect-raw-{}.json').format(self.time_str))
+        save_json(OUTPUT_DIR +'/FIS-main-effect-raw-{}.json'.format(self.name_id), self.rset_main_effect_raw)
+        self.logger.info('Searching done and saved to {}'.format(OUTPUT_DIR+'/FIS-main-effect-raw-{}.json').format(self.name_id))
         return m_single_boundary_e, points_all_max, points_all_min, fis_main_single_boundary_e
 
     def ref_explain(self, model_reliance=False):
@@ -236,7 +237,7 @@ class fis_explainer:
             self.ref_analysis['ref_fis'] = self._get_ref_fis()
             self.logger.info('FIS calculated and can be called by explainer.ref_analysis')
             self.logger.info('Calculation done')
-            save_json(OUTPUT_DIR+'/Ref-in-Rashomon-set-analysis-{}.json'.format(self.time_str), self.ref_analysis)
+            save_json(OUTPUT_DIR+'/Ref-in-Rashomon-set-analysis-{}.json'.format(self.name_id), self.ref_analysis)
     def rset_explain(self, main_effect=True, interaction_effect=True):
         '''
         Find the range of FIS for each pair of features in the Rashomon set
@@ -267,7 +268,7 @@ class fis_explainer:
                 self.rset_main_effect_processed['all_main_effects_diff'] = all_main_effects_diff
                 self.rset_main_effect_processed['loss_diff_multi_boundary_e'] = loss_diff_multi_boundary_e
                 self.rset_main_effect_processed['main_effect_complete_list'] = main_effect_complete_list
-                save_json(OUTPUT_DIR + '/FIS-main-effect-processed-{}.json'.format(self.time_str), self.rset_main_effect_processed)
+                save_json(OUTPUT_DIR + '/FIS-main-effect-processed-{}.json'.format(self.name_id), self.rset_main_effect_processed)
             else:
                 self.logger.info('Already exists, skip')
         if interaction_effect:
@@ -280,7 +281,7 @@ class fis_explainer:
                 # self.rset_joint_effect_raw['m_multi_boundary_e'] = m_multi_boundary_e
                 self.logger.info('Calculation done')
                 self.logger.info('Calculating FISC in the Rashomon set for all models in the Rashomon set')
-                save_json(OUTPUT_DIR + '/FIS-joint-effect-raw-{}.json'.format(self.time_str), self.rset_joint_effect_raw)
+                save_json(OUTPUT_DIR + '/FIS-joint-effect-raw-{}.json'.format(self.name_id), self.rset_joint_effect_raw)
 
             else:
                 self.all_pairs = self.ref_analysis['important_pairs']
@@ -296,10 +297,11 @@ class fis_explainer:
                     self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['min'] = np.min(fis_each_pair)
                     self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['max'] = np.max(fis_each_pair)
                 self.logger.info('Calculation done')
-                save_json(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json'.format(self.time_str), self.FIS_in_Rashomon_set)
-                self.logger.info('Explanation is saved to {}'.format(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json').format(self.time_str))
+                save_json(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}-{}-{}.json'.format(self.name_id, self.epsilon, self.loss_fn), self.FIS_in_Rashomon_set)
+                self.logger.info('Explanation is saved to {}'.format(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}-{}-{}.json').format(self.name_id, self.epsilon, self.loss_fn))
             else:
                 self.logger.info('Already exists, skip')
+        logging.shutdown()
 
     def feature_importance_uni(self, mean=False, std=False):
         '''

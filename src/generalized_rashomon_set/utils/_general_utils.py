@@ -94,8 +94,9 @@ def MDS(vt_l, n_features_in, n_features_out=2):
         vt_l_transformed_y[i, :, 1] = vt_l_y[i, :] * np.sin(i * (degree_avg))
     return vt_l_transformed_x, vt_l_transformed_y
 
-
-def loss_func(loss_fn, y_true, y_pred):
+def loss_func(loss_fn, y_true, y_pred, binary=False):
+    if binary:
+        y_pred = (y_pred > 0.5)
     if loss_fn == 'mean_squared_error':
         return mean_squared_error(y_true, y_pred)
     elif loss_fn == 'mean_absolute_error':
@@ -107,8 +108,12 @@ def loss_func(loss_fn, y_true, y_pred):
     elif loss_fn == 'log_loss_sum':
         return log_loss(y_true, y_pred, normalize=False)
     elif loss_fn == 'roc_auc_score':
+        if np.array(y_pred).ndim > 1:
+            y_pred = y_pred[:,0]
         return roc_auc_score(y_true, y_pred)
     elif loss_fn == 'accuracy_score':
+        if np.array(y_pred).ndim > 1:
+            y_pred = y_pred[:,0]
         return accuracy_score(y_true, y_pred)
     else:
         raise ValueError(f'Unknown loss function: {loss_fn}')
@@ -304,7 +309,7 @@ def greedy_search(vidx, bound, loss_ref, model, X, y, delta=0.1, direction=True,
                 else:
                     X0[:, vidx] = X0[:, vidx] * (m - lr)
             pred = model.predict(X0)
-            loss_m = loss_func(loss_fn, y , pred)
+            loss_m = loss_func(loss_fn, y, pred)
             # if regression:
             #     pred = model.predict(X0)
             #     loss_m=loss_regression(y, pred)

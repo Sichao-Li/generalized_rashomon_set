@@ -24,10 +24,12 @@ class model_wrapper:
                         X = Image.fromarray(X)
                     X = self.preprocessor(X)
                     return self.model(X).squeeze(0).softmax(0)
-
+#TODO: PREDICTION
                 else:
                     X = torch.tensor(X).float()
-                    return self.model(X).detach().numpy()
+                    pred = self.model(X)
+                    _, predicted = pred.max(1)
+                    return predicted.detach().numpy()
 
         else:
             X = X
