@@ -118,7 +118,7 @@ def loss_func(loss_fn, y_true, y_pred, binary=False):
     else:
         raise ValueError(f'Unknown loss function: {loss_fn}')
 
-def loss_shuffle(model, X0, v_idx, y, times=30, loss_fn=None):
+def loss_shuffle(model, X0, v_idx, y, times=30, loss_fn=None, binary=False):
     #     shuffle to evaluate the feature importance
     loss_all = []
     if np.array(v_idx).ndim == 0:
@@ -136,7 +136,7 @@ def loss_shuffle(model, X0, v_idx, y, times=30, loss_fn=None):
         pred = model.predict(X0)
         if torch.is_tensor(pred):
             pred = pred.detach().numpy()
-        loss_shuffle = loss_func(loss_fn, y, pred)
+        loss_shuffle = loss_func(loss_fn, y, pred, binary)
             # X0[:, idx] = -1
         # if regression:
         #     pred = model.predict(X0)
@@ -169,18 +169,18 @@ def loss_shuffle(model, X0, v_idx, y, times=30, loss_fn=None):
 #     loss_after = loss_shuffle(model, X0, v_idx, y, shuffle_times, regression=regression)
 #     return loss_after, loss_before
 
-def feature_effect(v_idx, X0, y, model, shuffle_times=30, loss_fn=None):
+def feature_effect(v_idx, X0, y, model, shuffle_times=30, loss_fn=None, binary=False):
     # loss before shuffle
     pred = model.predict(X0)
     if torch.is_tensor(pred):
         pred = pred.detach().numpy()
-    loss_before = loss_func(loss_fn, y, pred)
+    loss_before = loss_func(loss_fn, y, pred, binary)
     # loss after shuffle
-    loss_after = loss_shuffle(model, X0, v_idx, y, shuffle_times, loss_fn=loss_fn)
+    loss_after = loss_shuffle(model, X0, v_idx, y, shuffle_times, loss_fn=loss_fn, binary=binary)
     return loss_after, loss_before
 
 
-def feature_effect_context(vidx, X0, y, model, shuffle_times=30, loss_fn=None, context=1):
+def feature_effect_context(vidx, X0, y, model, shuffle_times=30, loss_fn=None, context=1, binary=False):
     X1 = X0.copy()
     if isinstance(vidx, int):
         vidx = [vidx]
@@ -190,7 +190,7 @@ def feature_effect_context(vidx, X0, y, model, shuffle_times=30, loss_fn=None, c
         # X1[:, i] = 1
     # loss before shuffle
     pred = model.predict(X1)
-    loss_before = loss_func(loss_fn, y, pred)
+    loss_before = loss_func(loss_fn, y, pred, binary)
     # if regression:
     #     pred = model.predict(X1)
     #     loss_before = loss_regression(y, pred)
@@ -199,7 +199,7 @@ def feature_effect_context(vidx, X0, y, model, shuffle_times=30, loss_fn=None, c
     #     pred = model.predict(X1)
     #     loss_before = loss_classification(y, pred)
     # loss after shuffle
-    loss_after = loss_shuffle(model, X1, vidx, y, shuffle_times, loss_fn=loss_fn)
+    loss_after = loss_shuffle(model, X1, vidx, y, shuffle_times, loss_fn=loss_fn, binary=binary)
     return loss_after, loss_before
 
 
@@ -264,7 +264,7 @@ def load_json(path):
     return json_data
 
 
-def greedy_search(vidx, bound, loss_ref, model, X, y, delta=0.1, direction=True, loss_fn=None, softmax=False):
+def greedy_search(vidx, bound, loss_ref, model, X, y, delta=0.1, direction=True, loss_fn=None, softmax=False, binary=False):
     '''
     greedy search possible m for a single feature
         Input:
@@ -310,7 +310,7 @@ def greedy_search(vidx, bound, loss_ref, model, X, y, delta=0.1, direction=True,
                 else:
                     X0[:, vidx] = X0[:, vidx] * (m - lr)
             pred = model.predict(X0)
-            loss_m = loss_func(loss_fn, y, pred)
+            loss_m = loss_func(loss_fn, y, pred, binary)
 #             the diffrence of changed loss and optimal loss
             mydiff = loss_m - loss_ref
 
@@ -320,7 +320,7 @@ def greedy_search(vidx, bound, loss_ref, model, X, y, delta=0.1, direction=True,
                     m = m+lr
                 if not direction:
                     m = m-lr
-                loss_after, loss_before = feature_effect(vidx, X0, y, model, 30, loss_fn=loss_fn)
+                loss_after, loss_before = feature_effect(vidx, X0, y, model, 30, loss_fn=loss_fn, binary=binary)
                 feature_attribution_main = loss_after - loss_before
                 points.append([m, mydiff])
     #             if the loss within the bound but stays same for loss_count times, then the vt is unimportant (the attribution of the feature is assigned 0, as the power of the single feature is not enough to change loss).

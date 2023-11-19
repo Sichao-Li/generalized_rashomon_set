@@ -13,7 +13,8 @@ class fis_explainer_context(fis_explainer):
         main_effects_ref = []
         for i in self.v_list:
             X0 = self.input.copy()
-            loss_after, loss_before = feature_effect_context(i, X0, self.output, self.model, 10, loss_fn=self.loss_fn, context=self.context)
+            loss_after, loss_before = feature_effect_context(i, X0, self.output, self.model, 10, loss_fn=self.loss_fn,
+                                                             context=self.context, binary=self.binary)
             main_effects_ref.append(loss_after-loss_before)
         return main_effects_ref
 
@@ -24,6 +25,8 @@ class fis_explainer_context(fis_explainer):
             if subset[0] != 0:
                 subset = np.nonzero(np.in1d(self.v_list, subset))[0]
             X0 = self.input.copy()
-            loss_after, loss_before = feature_effect_context(subset, X0=X0, y=self.output, model=self.model, shuffle_times=10, loss_fn=self.loss_fn, context=self.context)
+            loss_after, loss_before = feature_effect_context(subset, X0=X0, y=self.output, model=self.model,
+                                                             shuffle_times=10, loss_fn=self.loss_fn,
+                                                             context=self.context, binary=self.binary)
             joint_effects_ref.append(loss_after-loss_before)
         return joint_effects_ref

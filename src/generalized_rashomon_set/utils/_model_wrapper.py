@@ -7,11 +7,13 @@ class model_wrapper:
             wrapper_for_torch,
             softmax,
             preprocessor=None,
+            binary=False
     ):
         self.model = model
         self.wrapper_for_torch = wrapper_for_torch
         self.softmax = softmax
         self.preprocessor = preprocessor
+        self.binary = binary
 
     def predict(self, X):
         if self.wrapper_for_torch:
@@ -24,13 +26,15 @@ class model_wrapper:
                         X = Image.fromarray(X)
                     X = self.preprocessor(X)
                     return self.model(X).squeeze(0).softmax(0)
-#TODO: PREDICTION
-                else:
+                elif self.binary:
                     X = torch.tensor(X).float()
                     pred = self.model(X)
                     _, predicted = pred.max(1)
                     return predicted.detach().numpy()
-
+                else:
+                    X = torch.tensor(X).float()
+                    pred = self.model(X)
+                    return pred.detach().numpy()
         else:
             X = X
             if hasattr(self.model, 'predict'):

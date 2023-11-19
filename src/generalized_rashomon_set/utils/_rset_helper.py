@@ -2,7 +2,7 @@ import numpy as np
 from ._general_utils import find_all_sum_to_one_pairs, feature_effect, find_all_n_way_feature_pairs
 import itertools
 from ..config import logger
-def Interaction_effect_calculation(feature_idx, model, m_all, X, y, loss_fn=None, subset_idx=None):
+def Interaction_effect_calculation(feature_idx, model, m_all, X, y, loss_fn=None, subset_idx=None, binary=False):
     '''
     Calculate the feature interaction effect following
     c(x1, x2) = c(x1) + c(x2) + fi(x1, x2) wrt. c(x1) + c(x2) = boundary
@@ -21,7 +21,7 @@ def Interaction_effect_calculation(feature_idx, model, m_all, X, y, loss_fn=None
             loss_emp: emperical loss set
             diff: feature interaction value set
     '''
-    m_interest = np.array(m_all)[(subset_idx), :, :]
+    m_interest = np.array(m_all)[(subset_idx), :, :] # [3, 11, 2]
     loss_emp = []
     joint_effect_all = []
     n_ways = len(feature_idx)
@@ -29,13 +29,13 @@ def Interaction_effect_calculation(feature_idx, model, m_all, X, y, loss_fn=None
     for sum_to_one_pair in all_sum_to_one_pairs:
         possibilities = []
         for idx, i in enumerate(sum_to_one_pair):
-            possibilities.append(m_interest[idx, i, :])
+            possibilities.append(m_interest[idx, i, :]) # m_interest is in shape [3, 11, 2]
     # for idx, i in enumerate(e_idx):
     #     possibilities.append(m_interest[idx, i, :])
         for comb in itertools.product(*possibilities):
             X0 = X.copy()
             X0[:, feature_idx] = X0[:, feature_idx] * comb
-            loss_after, loss_before = feature_effect(feature_idx, X0, y, model, shuffle_times=30, loss_fn=loss_fn)
+            loss_after, loss_before = feature_effect(feature_idx, X0, y, model, shuffle_times=30, loss_fn=loss_fn, binary=binary)
             joint_effect_all.append(loss_after-loss_before)
             loss_emp.append(loss_before)
     return joint_effect_all, loss_emp
@@ -67,7 +67,9 @@ def Interaction_effect_all_pairs(X, y, vlist, n_ways, model, m_all, loss_fn=None
         # for sum_to_one_pair in all_sum_to_one_pairs:
             # each subset has 2^n possibilities
         subset_idx = np.nonzero(np.in1d(vlist, subset))[0]
-        joint_effect_single_pair, loss_emp_single_pair = Interaction_effect_calculation(subset, model, m_all, X, y, loss_fn=loss_fn, subset_idx=subset_idx)
+        joint_effect_single_pair, loss_emp_single_pair = Interaction_effect_calculation(subset, model, m_all, X, y,
+                                                                                        loss_fn=loss_fn,
+                                                                                        subset_idx=subset_idx)
         joint_effect_all_pair.append(joint_effect_single_pair)
         loss_emp_all_pair.append(loss_emp_single_pair)
     return joint_effect_all_pair, loss_emp_all_pair
@@ -168,7 +170,7 @@ def list_flatten(list, reverse):
 #
 #     return main_effect_all_ratio, main_effect_all_diff, main_effect_complete_list
 
-def get_all_main_effects(m_multi_boundary_e, input, output, model, v_list, loss_fn, delta):
+def get_all_main_effects(m_multi_boundary_e, input, output, model, v_list, loss_fn, delta, binary):
     '''
     :param m_multi_boundary_e: an m matrix in shape [p, d, 2]
     :param model: reference model
@@ -193,14 +195,14 @@ def get_all_main_effects(m_multi_boundary_e, input, output, model, v_list, loss_
                     X0[:, i] = X0[:, i] * m_multi_boundary_e[idxj, idxi, k]
                     # make sure X1 and X2 are consistent with X0
                     X1 = X0.copy()
-                    loss_after, loss_before = feature_effect(i, X1, output, model, 30, loss_fn=loss_fn)
+                    loss_after, loss_before = feature_effect(i, X1, output, model, 30, loss_fn=loss_fn, binary=binary)
                     main_effect_all_ratio[idxj, idxi, k] = loss_after / loss_before
                     main_effect_all_diff[idxj, idxi, k] = loss_after - loss_before
                     m_prev = m_multi_boundary_e[idxj, idxi, k]
                     sub_list = []
                     for idxt, t in enumerate(v_list):
                         X2 = X0.copy()
-                        loss_after, loss_before = feature_effect(t, X2, output, model, 30, loss_fn=loss_fn)
+                        loss_after, loss_before = feature_effect(t, X2, output, model, 30, loss_fn=loss_fn, binary=binary)
                         sub_list.append(loss_after - loss_before)
                     main_effect_complete_list.append(sub_list)
 
@@ -231,8 +233,8 @@ def get_all_joint_effects(m_multi_boundary_e, input, output, v_list, n_ways, mod
         joint_effect_all_pair_set: all joint effects of features [5, n_joint_pairs, 36] in fis, where 36 is 2^2*9
         loss_emp_all_pair_set: all joint effects of features [5, n_joint_pairs, 36] in loss
     '''
-    joint_effect_all_pair_set = []
-    loss_emp_all_pair_set = []
+    # joint_effect_all_pair_set = []
+    # loss_emp_all_pair_set = []
     # for m_all in m_multi_boundary_e:
     m_multi_boundary_e = m_multi_boundary_e.transpose((1, 0, 2))
     joint_effect_all_pair, loss_emp = Interaction_effect_all_pairs(input, output, v_list,
@@ -296,9 +298,7 @@ def get_fis_in_r(all_pairs, joint_effect_all_pair_set, main_effect_all_diff, n_w
         for idxk, sum in enumerate(sum_to_one):
             for idxq, quadrant in enumerate(quadrants):
                 # for each pair, find the main effect
-                single_fis = abs(
-                    fij_joint[[idxk * 4 + quadrant]] - fi[sum[0]][quadrants[quadrant][0]] - fj[sum[-1]][
-                        quadrants[quadrant][-1]])
+                single_fis = fij_joint[[idxk * 4 + quadrant]] - fi[sum[0]][quadrants[quadrant][0]] - fj[sum[-1]][quadrants[quadrant][-1]]
                 fis_rset[idx, idxk * 4 + quadrant] = single_fis
     return fis_rset
 

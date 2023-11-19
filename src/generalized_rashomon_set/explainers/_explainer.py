@@ -24,7 +24,8 @@ class fis_explainer:
         n_ways=2,
         feature_idx=None,
         wrapper_for_torch=False,
-        delta=0.1
+        delta=0.1,
+        binary=False
     ):
         input, output = self.arg_checks(input, output)
         self.logger = logger
@@ -44,14 +45,16 @@ class fis_explainer:
             self.v_list = range(len(self.input[-1]))
         self.loss_fn = loss_fn
         self.delta=delta
-
-
+        self.binary=binary
         self.prediction_fn_exist = True
         # define if a model is built from torch
         if wrapper_for_torch:
             if self.softmax:
                 self.model = model_wrapper(model, wrapper_for_torch=True, softmax=True, preprocessor=self.input._preprocess)
                 self.prediction = self._get_prediction(self.input.input)
+            elif self.binary:
+                self.model = model_wrapper(model, wrapper_for_torch=True, softmax=False, binary=self.binary)
+                self.prediction = self._get_prediction(self.input)
             else:
                 self.model = model_wrapper(model, wrapper_for_torch=True, softmax=False)
                 self.prediction = self._get_prediction(self.input)
@@ -67,7 +70,7 @@ class fis_explainer:
         # self.prediction = self._get_prediction(self.input)
         if not isinstance(self.prediction, np.ndarray):
             self.prediction = self.prediction.detach().numpy()
-        self.loss = loss_func(self.loss_fn, self.output, self.prediction)
+        self.loss = loss_func(self.loss_fn, self.output, self.prediction, self.binary)
         self.epsilon = self.loss*epsilon_rate
         self.all_pairs = find_all_n_way_feature_pairs((self.v_list), n_ways=n_ways)
         # self.m_all, self.points_all_positive, self.points_all_negative, self.main_effects = self.explore_m_in_R(self.epsilon, self.loss, range(len(self.input[-1])), model, input, output, delta=0.1, regression=self.regression)
@@ -127,7 +130,7 @@ class fis_explainer:
                 if model_reliance:
                     mr = MR(i, X0, self.output, self.model)
                     mr_ref.append(mr)
-                loss_after, loss_before = feature_effect(i, X0, self.output, self.model, 30, loss_fn=self.loss_fn)
+                loss_after, loss_before = feature_effect(i, X0, self.output, self.model, 30, loss_fn=self.loss_fn, binary=self.binary)
                 main_effects_ref.append(loss_after-loss_before)
         else:
             for i in self.v_list:
@@ -136,7 +139,8 @@ class fis_explainer:
                 # X0 = Image.fromarray(X0)
                 # X0 = self.input._preprocess(X0)
                 # image_trans._transform(mask_indices, [0, 0, 0, 0, 0, 0, 0, 0])
-                loss_after, loss_before = feature_effect([mask_indices], X0, self.output, self.model, 30, loss_fn=self.loss_fn)
+                loss_after, loss_before = feature_effect([mask_indices], X0, self.output, self.model, 30,
+                                                         loss_fn=self.loss_fn, binary=self.binary)
                 main_effects_ref.append(loss_after -loss_before)
         if model_reliance:
             return main_effects_ref, mr_ref
@@ -151,13 +155,15 @@ class fis_explainer:
             #     print(subset)
             if not self.softmax:
                 X0 = self.input.copy()
-                loss_after, loss_before = feature_effect(pair_idx, X0=X0, y=self.output, model=self.model, shuffle_times=30, loss_fn=self.loss_fn)
+                loss_after, loss_before = feature_effect(pair_idx, X0=X0, y=self.output, model=self.model,
+                                                         shuffle_times=30, loss_fn=self.loss_fn, binary=self.binary)
                 joint_effects_ref.append(loss_after-loss_before)
             else:
                 X0 = copy.copy(self.input.input)
                 try:
                     mask_indices = self.input._get_mask_indices_of_feature(pair_idx)
-                    loss_after, loss_before = feature_effect(mask_indices, X0=X0, y=self.output, model=self.model, shuffle_times=30, loss_fn=self.loss_fn)
+                    loss_after, loss_before = feature_effect(mask_indices, X0=X0, y=self.output, model=self.model,
+                                                             shuffle_times=30, loss_fn=self.loss_fn, binary=self.binary)
                     joint_effects_ref.append(loss_after-loss_before)
                 except Exception:
                     self.logger.info('Joint effect of {} is 10000'.format(pair_idx))
@@ -204,10 +210,10 @@ class fis_explainer:
         self.logger.info('Searching models in the Rashomon set ...')
         for idx, vname in enumerate(vlist):
             m_max_single_boundary_e, points_max, fis_all_plus = greedy_search(vname, bound, loss_ref, model, X, y, direction=True,
-                                                             delta=delta, loss_fn=self.loss_fn)
+                                                             delta=delta, loss_fn=self.loss_fn, binary=self.binary)
             points_all_max.append(points_max)
             m_min_single_boundary_e, points_min, fis_all_minus = greedy_search(vname, bound, loss_ref, model, X, y, direction=False,
-                                                               delta=delta, loss_fn=self.loss_fn)
+                                                               delta=delta, loss_fn=self.loss_fn, binary=self.binary)
             points_all_min.append(points_min)
             m_single_boundary_e[idx, :, 0] = m_max_single_boundary_e
             m_single_boundary_e[idx, :, 1] = m_min_single_boundary_e
@@ -265,9 +271,9 @@ class fis_explainer:
                     # get_all_m_with_t_in_range(self.rset_main_effect_raw['points_all_max'],
                     #                                            self.rset_main_effect_raw['points_all_min'],
                     #                                            self.epsilon)
-                all_main_effects_ratio, all_main_effects_diff, main_effect_complete_list = get_all_main_effects(m_multi_boundary_e,
-                                                                                                      self.input, self.output,
-                                                                                                      self.model, self.v_list, self.loss_fn, self.delta)
+                all_main_effects_ratio, all_main_effects_diff, main_effect_complete_list = get_all_main_effects(
+                    m_multi_boundary_e, self.input, self.output, self.model, self.v_list, self.loss_fn, self.delta,
+                    False)
                 self.logger.info('Calculation done')
                 self.rset_main_effect_processed['m_multi_boundary_e'] = m_multi_boundary_e
                 self.rset_main_effect_processed['all_main_effects_ratio'] = all_main_effects_ratio
