@@ -11,6 +11,7 @@ src/generalized_rashomon_set.egg-info/top_level.txt
 src/generalized_rashomon_set/explainers/__init__.py
 src/generalized_rashomon_set/explainers/_context_explainer.py
 src/generalized_rashomon_set/explainers/_explainer.py
+src/generalized_rashomon_set/explainers/_feature_attributor.py
 src/generalized_rashomon_set/plots/__init__.py
 src/generalized_rashomon_set/plots/_halo_plot.py
 src/generalized_rashomon_set/plots/_swarm_plot.py

@@ -80,11 +80,12 @@ import grs
 model =  MLPRegressor(hidden_layer_sizes, max_iter=200).fit(X, y)
 
 # explain the model by exploring the Rashomon set
-explainer = grs.explainers.fis_explainer()
+explainer = explainers.fis_explainer(model, X_test, y_test, epsilon_rate=0.05,
+                                     loss_fn='mean_squared_error', n_ways=2, delta=0.5, wrapper_for_torch=False)
 
 # visualize the predictions
-grs.plots.swarm_plot()
-grs.plots.halo_plot()
+plots.swarm_plot()
+plots.halo_plot()
 ```
 ----
 
@@ -96,9 +97,24 @@ in [toy-example.ipynb](.\demo\toy_example.ipynb), results are shown below.
 )
 ----
 
-## Experiments (coming soon)
+## Experiment
 
-Code is provided to reproduce the experiments of our paper.
+A more detailed example of recidivism prediction for real-world applications can be found in [experiments](.\experiments) recidivism prediction.ipynb.
+
+The results might be slightly different from the paper due to the refactor of the code, but the main conclusions remain the same.
+The package is still under refactoring to facilitate easy visualization, and we are actively working on a more comprehensive documentation.
+
+Please feel free to drop an email to [Sichao Li](mailto:sichao.li@anu.edu.au) in case you want to discuss.
+## Citation
+
+```
+@article{li2023exploring,
+  title={Exploring the cloud of feature interaction scores in a Rashomon set},
+  author={Li, Sichao and Wang, Rong and Deng, Quanling and Barnard, Amanda},
+  journal={arXiv preprint arXiv:2305.10181},
+  year={2023}
+}
+```
 
 
 

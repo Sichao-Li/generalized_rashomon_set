@@ -1,8 +1,9 @@
 import matplotlib.pyplot as plt
 from generalized_rashomon_set.config import OUTPUT_DIR
 import numpy as np
-from generalized_rashomon_set.utils import Interaction_effect_calculation, high_order_vis_loss, pairwise_vis_loss
+from generalized_rashomon_set.utils import high_order_vis_loss, pairwise_vis_loss
 from generalized_rashomon_set.utils import colors_vis
+
 def halo_plot(explainer, pair_idx, save=False, suffix=''):
     '''
      :param pair_idx: the pair of interest
@@ -77,11 +78,9 @@ def halo_plot_3D(explainer, pair_idx, save=False, path=''):
      :param save: if save the plot
      :param path: the saving path
      '''
-    _, loss_emp_single_pair = Interaction_effect_calculation(pair_idx, explainer.model,
-                                                             explainer.rset_main_effect_processed['m_multi_boundary_e'][
-                                                                 -1].transpose((1, 0, 2)),
-                                                             explainer.input, explainer.output, loss_fn=explainer.loss_fn,
-                                                             subset_idx=pair_idx)
+    _, loss_emp_single_pair = explainer.fis_attributor.feature_interaction_effect(pair_idx,
+                                                             explainer.rset_main_effect_processed['m_multi_boundary_e'].transpose((1, 0, 2)),
+                                                             explainer.input, explainer.output,subset_idx=pair_idx)
     ball_exp, ball_emp = high_order_vis_loss(loss_emp_single_pair, explainer.epsilon, 3, explainer.loss)
     fis_vis_3D(ball_exp, ball_emp, save=save, path=path)
 

@@ -1,11 +1,13 @@
 import torch
 from PIL import Image
+
+
 class model_wrapper:
     def __init__(
             self,
             model,
             wrapper_for_torch,
-            softmax,
+            softmax=False,
             preprocessor=None,
             binary=False
     ):
