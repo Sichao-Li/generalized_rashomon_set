@@ -92,14 +92,14 @@ plots.halo_plot()
 ## Demo
 
 A toy example shows how halo plot illustrates the effect of feature interaction 
-in [toy-example.ipynb](.\demo\toy_example.ipynb), results are shown below.
+in [toy-example.ipynb](./demo/toy_example.ipynb), results are shown below.
 ![Toy example](https://github.com/Sichao-Li/generalized_rashomon_set/raw/main/demo/x1x2_simple.png
 )
 ----
 
 ## Experiment
 
-A more detailed example of recidivism prediction for real-world applications can be found in [experiments](.\experiments) recidivism prediction.ipynb.
+A more detailed example of recidivism prediction for real-world applications can be found in [experiments](./experiments) recidivism prediction.ipynb.
 
 The results might be slightly different from the paper due to the refactor of the code, but the main conclusions remain the same.
 The package is still under refactoring to facilitate easy visualization, and we are actively working on a more comprehensive documentation.
