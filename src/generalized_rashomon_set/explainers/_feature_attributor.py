@@ -7,7 +7,7 @@ import itertools
 from ..utils import find_all_sum_to_one_pairs
 
 class feature_attributor:
-    def __init__(self, model, loss_fn, binary):
+    def __init__(self, model, loss_fn, binary, delta=0.1):
         self.model = model
         self.loss_fn = loss_fn
         self.loss_functions = {
@@ -21,7 +21,7 @@ class feature_attributor:
             'accuracy_score': accuracy_score
         }
         self.binary = binary
-
+        self.delta = delta
     def convert_to_numpy(self, tensor):
         """Converts a PyTorch tensor to a NumPy array."""
         if torch.is_tensor(tensor):
@@ -90,15 +90,15 @@ class feature_attributor:
         c(x1, x2) = c(x1) + c(x2) + fi(x1, x2) wrt. c(x1) + c(x2) = boundary
         fi(x1, x2) is defined as the difference between the combined effect of x1 and x2 and the sum of their individual effects.
         """
-        m_interest = np.array(m_all)[(subset_idx), :, :] # [3, 11, 2]
+        m_interest = np.array(m_all)[(subset_idx), :, :] # [n_subset_features, n_sums, 2]
         loss_emp = []
         joint_effect_all = []
-        n_ways = len(feature_idx)
-        all_sum_to_one_pairs = find_all_sum_to_one_pairs(n_ways)
+        n_order = len(feature_idx)
+        all_sum_to_one_pairs = find_all_sum_to_one_pairs(n_order, delta=self.delta)
         for sum_to_one_pair in all_sum_to_one_pairs:
             possibilities = []
             for idx, i in enumerate(sum_to_one_pair):
-                possibilities.append(m_interest[idx, i, :]) # m_interest is in shape [3, 11, 2]
+                possibilities.append(m_interest[idx, i, :]) # e.g., in breast cancer, m_interest is in shape [2, 3, 2] if delta=0.5
             for comb in itertools.product(*possibilities):
                 X0 = X.copy()
                 X0[:, feature_idx] = X0[:, feature_idx] * comb

@@ -1,6 +1,6 @@
 from ..explainers import fis_explainer
 import numpy as np
-from ..utils import find_all_n_way_feature_pairs
+from ..utils import find_all_n_order_feature_pairs
 from ._feature_attributor import feature_attributor
 class fis_explainer_context(fis_explainer):
     '''
@@ -21,7 +21,7 @@ class fis_explainer_context(fis_explainer):
 
     def _get_ref_joint_effect(self):
         joint_effects_ref = []
-        all_n_way_feature_subsets = find_all_n_way_feature_pairs(vlist=self.v_list, n_ways=self.n_ways)
+        all_n_way_feature_subsets = find_all_n_order_feature_pairs(vlist=self.v_list, n_order=self.n_order)
         for subset in all_n_way_feature_subsets:
             if subset[0] != 0:
                 subset = np.nonzero(np.in1d(self.v_list, subset))[0]

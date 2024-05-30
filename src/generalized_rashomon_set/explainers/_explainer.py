@@ -4,14 +4,13 @@ import numpy as np
 from functools import lru_cache
 from ..utils import model_wrapper
 from ..config import OUTPUT_DIR, time_str
-from ..utils import find_all_n_way_feature_pairs
+from ..utils import find_all_n_order_feature_pairs
 from ..utils import load_json, save_json
 from ..config import logger
 import logging
 from ._feature_attributor import feature_attributor
 from ..utils import find_all_sum_to_one_pairs
 
-# TODO: record MR range; choose to save; fis over rset;
 class fis_explainer:
     def __init__(
         self,
@@ -20,14 +19,14 @@ class fis_explainer:
         output=None,
         epsilon_rate=0.1,
         loss_fn=None,
-        n_ways=2,
+        n_order=2,
         wrapper_for_torch=False,
         delta=0.1,
         binary=False
     ):
 
         self.logger = logger
-        self.n_ways = n_ways
+        self.n_order = n_order
         # self.model = model
         self.quadrants = {0: [0, 0], 1: [0, 1], 2: [1, 0], 3: [1, 1]}
         self.input, self.output = self.arg_checks(input, output)
@@ -62,11 +61,11 @@ class fis_explainer:
         if not isinstance(self.prediction, np.ndarray):
             self.prediction = self.prediction.detach().numpy()
 
-        self.fis_attributor = feature_attributor(self.model, self.loss_fn, self.binary)
+        self.fis_attributor = feature_attributor(self.model, self.loss_fn, self.binary, self.delta)
         self.loss = self.fis_attributor.loss_func(self.output, self.prediction)
         # self.loss = loss_func(self.loss_fn, self.output, self.prediction, self.binary)
         self.epsilon = self.loss*epsilon_rate
-        self.all_pairs = find_all_n_way_feature_pairs((self.v_list), n_ways=n_ways)
+        self.all_pairs = find_all_n_order_feature_pairs((self.v_list), n_order=n_order)
         # self.m_all, self.points_all_positive, self.points_all_negative, self.main_effects = self.explore_m_in_R(self.epsilon, self.loss, range(len(self.input[-1])), model, input, output, delta=0.1, regression=self.regression)
         self.FIS_in_Rashomon_set = {}
         self.rset_main_effect_raw = {}
@@ -184,7 +183,7 @@ class fis_explainer:
         '''
         :return: fis of all pairs based on the reference model
         '''
-        self.all_pairs = find_all_n_way_feature_pairs((self.v_list), n_ways=self.n_ways)
+        self.all_pairs = find_all_n_order_feature_pairs((self.v_list), n_order=self.n_order)
         self.ref_analysis['ref_joint_effects'] = self._get_ref_joint_effect()
         self.ref_analysis['important_features'] = self.v_list
         self.ref_analysis['important_pairs'] = self.all_pairs
@@ -291,7 +290,7 @@ class fis_explainer:
             # Joint effect processing
             if self.rset_joint_effect_raw == {}:
                 self.logger.info('Calculating all joint effects of feature in pairs {}'. format(len(self.all_pairs)))
-                joint_effect_all_pair_set, loss_emp_all_pair_set = self._get_all_joint_effects(self.rset_main_effect_processed['m_multi_boundary_e'], self.input, self.output, self.v_list, self.n_ways)
+                joint_effect_all_pair_set, loss_emp_all_pair_set = self._get_all_joint_effects(self.rset_main_effect_processed['m_multi_boundary_e'], self.input, self.output, self.v_list, self.n_order)
                 self.rset_joint_effect_raw['joint_effect_all_pair_set'] = np.array(joint_effect_all_pair_set)
                 self.rset_joint_effect_raw['loss_emp_all_pair_set'] = np.array(loss_emp_all_pair_set)
                 # self.rset_joint_effect_raw['m_multi_boundary_e'] = m_multi_boundary_e
@@ -303,8 +302,8 @@ class fis_explainer:
                 self.all_pairs = self.ref_analysis['important_pairs']
                 self.logger.info('Already exists, skip')
             if self.FIS_in_Rashomon_set == {}:
-                self.fis_in_r = self._get_fis_in_r(self.all_pairs, np.array(self.rset_joint_effect_raw['joint_effect_all_pair_set']), np.array(self.rset_main_effect_processed['all_main_effects_diff']), self.n_ways, self.quadrants)
-                self.loss_in_r = self._get_loss_in_r(self.all_pairs, np.array(self.rset_joint_effect_raw['loss_emp_all_pair_set']), self.n_ways, self.quadrants, self.epsilon, self.loss)
+                self.fis_in_r = self._get_fis_in_r(self.all_pairs, np.array(self.rset_joint_effect_raw['joint_effect_all_pair_set']), np.array(self.rset_main_effect_processed['all_main_effects_diff']), self.n_order, self.quadrants)
+                self.loss_in_r = self._get_loss_in_r(self.all_pairs, np.array(self.rset_joint_effect_raw['loss_emp_all_pair_set']), self.n_order, self.quadrants, self.epsilon, self.loss)
                 for idx, fis_each_pair in enumerate(self.fis_in_r):
                     self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)] = {}
                     self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['feature_idx'] = self.ref_analysis['ref_fis'][idx][0]
@@ -332,7 +331,8 @@ class fis_explainer:
             Input:
                 vidx: variable name list of length n
                 bound: loss boundary in R set
-                model: optimal model
+                loss_ref: loss of reference model
+                model: reference model
                 X, y: model input and expected output in numpy
                 delta: the range of spliting 0 to 1
                 direction: exploring directions. When True, explore from 1 to 1+, else 1 to 1-
@@ -398,13 +398,13 @@ class fis_explainer:
             fis_all.append(feature_attribution_main)
         return m_all, points_all, fis_all
 
-    def _get_feature_interaction_effects_all_pairs(self, X, y, vlist, n_ways, m_all):
+    def _get_feature_interaction_effects_all_pairs(self, X, y, vlist, n_order, m_all):
         '''
         Calculate the feature interaction effect for all pairs.
         '''
         joint_effect_all_pair = []
         loss_emp_all_pair = []
-        for subset in find_all_n_way_feature_pairs(vlist, n_ways):
+        for subset in find_all_n_order_feature_pairs(vlist, n_order):
             subset_idx = np.nonzero(np.in1d(vlist, subset))[0]
             joint_effect_single_pair, loss_emp_single_pair = self.fis_attributor.feature_interaction_effect(subset, m_all, X, y, subset_idx=subset_idx)
             joint_effect_all_pair.append(joint_effect_single_pair)
@@ -442,13 +442,13 @@ class fis_explainer:
                         m_prev = m_multi_boundary_e[idxj, idxi, k]
                         sub_list = []
                         for idxt, t in enumerate(v_list):
-                            X2 = X0.copy()
+                            X2 = X1.copy()
                             loss_after, loss_before = self.fis_attributor.feature_effect(t, X2, output, 30)
                             sub_list.append(loss_after - loss_before)
                         main_effect_complete_list.append(sub_list)
         return main_effect_all_ratio, main_effect_all_diff, main_effect_complete_list
 
-    def _get_all_joint_effects(self, m_multi_boundary_e, input, output, v_list, n_ways):
+    def _get_all_joint_effects(self, m_multi_boundary_e, input, output, v_list, n_order):
         '''
         :param m_multi_boundary_e: an m matrix in shape [p, d, 2]
         :return:
@@ -456,10 +456,10 @@ class fis_explainer:
             loss_emp_all_pair_set: all joint effects of features [5, n_joint_pairs, 36] in loss
         '''
         m_multi_boundary_e = m_multi_boundary_e.transpose((1, 0, 2))
-        joint_effect_all_pair, loss_emp = self._get_feature_interaction_effects_all_pairs(input, output, v_list, n_ways, m_multi_boundary_e)
+        joint_effect_all_pair, loss_emp = self._get_feature_interaction_effects_all_pairs(input, output, v_list, n_order, m_multi_boundary_e)
         return joint_effect_all_pair, loss_emp
 
-    def _get_fis_in_r(self, all_pairs, joint_effect_all_pair_set, main_effect_all_diff, n_ways, quadrants):
+    def _get_fis_in_r(self, all_pairs, joint_effect_all_pair_set, main_effect_all_diff, n_order, quadrants):
         '''
         :param pairs: all pairs of interest
         :param joint_effect_all_pair_set: all joint effects of these pairs [5, n_pairs, 36]
@@ -470,7 +470,7 @@ class fis_explainer:
         joint_effect_all_pair_e = joint_effect_all_pair_set  # [n_pairs, 36]
         main_effect_all_diff_e = main_effect_all_diff  # [11, n_features, 2]
         main_effect_all_diff_e_reshaped = main_effect_all_diff_e.transpose((1, 0, 2))  # [n_features, 11, 2]
-        all_pairs_mask = find_all_n_way_feature_pairs((range(len(main_effect_all_diff_e_reshaped))), n_ways=n_ways)
+        all_pairs_mask = find_all_n_order_feature_pairs((range(len(main_effect_all_diff_e_reshaped))), n_order=n_order)
         # fi is n_featurex11x2, fij_joint is n_pairx36
         for idx, pair in enumerate(all_pairs):
             logger.info('Calculating :pair {} with index {} and {}'.format(idx, pair[0], pair[1]))
@@ -478,7 +478,7 @@ class fis_explainer:
             fi = main_effect_all_diff_e_reshaped[all_pairs_mask[idx][0]]
             fj = main_effect_all_diff_e_reshaped[all_pairs_mask[idx][1]]
             # 9 paris
-            sum_to_one = find_all_sum_to_one_pairs(n_ways)
+            sum_to_one = find_all_sum_to_one_pairs(n_order)
             for idxk, sum in enumerate(sum_to_one):
                 for idxq, quadrant in enumerate(quadrants):
                     # for each pair, find the main effect
@@ -487,7 +487,7 @@ class fis_explainer:
                     fis_rset[idx, idxk * 4 + quadrant] = single_fis
         return fis_rset
 
-    def _get_loss_in_r(self, all_pairs, joint_loss_pair_set, n_ways, quadrants, epsilon, loss):
+    def _get_loss_in_r(self, all_pairs, joint_loss_pair_set, n_order, quadrants, epsilon, loss):
         '''
         :param pairs: all pairs of interest
         :param joint_loss_pair_set: all joint losses of these pairs
@@ -498,7 +498,7 @@ class fis_explainer:
         for idx, pair in enumerate(all_pairs):
             fij_joint = joint_effect_all_pair_e[idx]
             # 9 paris
-            sum_to_one = find_all_sum_to_one_pairs(n_ways)
+            sum_to_one = find_all_sum_to_one_pairs(n_order)
             for idxk, sum in enumerate(sum_to_one):
                 for idxq, quadrant in enumerate(quadrants):
                     # for each pair, find the main effect

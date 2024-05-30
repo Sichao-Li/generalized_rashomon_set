@@ -26,7 +26,7 @@ def pd_to_numpy(X, y):
         y = y.to_numpy().reshape(len(y))
     return X, y
 
-def find_all_n_way_feature_pairs(vlist, n_ways):
+def find_all_n_order_feature_pairs(vlist, n_order):
     '''
     Each feature has one vt_plus and one vt_minus.
     N features have 2^N possibilities.
@@ -38,12 +38,12 @@ def find_all_n_way_feature_pairs(vlist, n_ways):
             interaction_n_list: list of all n way interaction pairs
     '''
     interaction_n_list = []
-    for i in combinations(vlist, n_ways):
+    for i in combinations(vlist, n_order):
         interaction_n_list.append(i)
     return interaction_n_list
 
 
-def find_all_sum_to_one_pairs(n_features):
+def find_all_sum_to_one_pairs(n_features, delta=0.1):
     '''
     Sample: two features X1 and X2, if the boundary is 1, then we have c(X1) + c(X2) = 1
 
@@ -54,13 +54,18 @@ def find_all_sum_to_one_pairs(n_features):
     value = range(10)
     target = 10
     pairs = []
+    out = []
     for feature_ind in combinations_with_replacement(value, n_features):
         if sum(feature_ind) == target:
             for i in itertools.permutations(feature_ind):
                 pairs.append(i)
-            #             if feature_ind[0] != feature_ind[1]:
-    #                 pairs.append((feature_ind[1], feature_ind[0]))
-    return list(set(pairs))
+    all_pairs = list(set(pairs))
+    # the following block will be used to calculate interaction effect when delta is not 0.1
+    delta *= 10
+    for pair in all_pairs:
+        if( pair[0] % delta == 0) and (pair[1] % delta == 0):
+            out.append(pair)
+    return out
 
 
 def MDS(vt_l, n_features_in, n_features_out=2):
