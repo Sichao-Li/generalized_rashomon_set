@@ -10,6 +10,9 @@ import shutil
 import logging
 from sklearn.model_selection import train_test_split
 import statsmodels.api as sm
+import torch
+import torch.nn.functional as F
+from torch import nn
 
 class grs_TestCase(unittest.TestCase):
     def test_log_loss(self):
@@ -18,7 +21,7 @@ class grs_TestCase(unittest.TestCase):
         model_clf = MLPClassifier(random_state=1, max_iter=300).fit(X.to_numpy(), y.to_numpy())
         fis_explainer_test_case = explainers.fis_explainer(model_clf,
                                                            X.to_numpy(), y.to_numpy(), epsilon_rate=0.001,
-                                                           loss_fn='log_loss', n_order=2, delta=0.5, wrapper_for_torch=False)
+                                                           loss_fn='log_loss', n_order=2, delta=0.5, torch_input=False)
         self.assertIsInstance(fis_explainer_test_case, explainers.fis_explainer)
         fis_explainer_test_case.ref_explain(model_reliance=False)
         self.assertIsNotNone(fis_explainer_test_case.ref_analysis)
@@ -32,7 +35,7 @@ class grs_TestCase(unittest.TestCase):
         model_clf = MLPClassifier(random_state=1, max_iter=300).fit(X.to_numpy(), y.to_numpy())
         fis_explainer_test_case = explainers.fis_explainer(model_clf,
                                                            X.to_numpy(), y.to_numpy(), epsilon_rate=0.001,
-                                                           loss_fn='log_loss', n_order=2, delta=0.1, wrapper_for_torch=False)
+                                                           loss_fn='log_loss', n_order=2, delta=0.1, torch_input=False)
         fis_explainer_test_case.ref_explain(model_reliance=False)
         fis_explainer_test_case.rset_explain(main_effect=True, interaction_effect=True)
         self.assertIsNotNone(fis_explainer_test_case.FIS_in_Rashomon_set)
@@ -44,13 +47,40 @@ class grs_TestCase(unittest.TestCase):
         model_clf = MLPClassifier(random_state=1, max_iter=300).fit(X.to_numpy(), y.to_numpy())
         fis_explainer_test_case = explainers.fis_explainer(model_clf,
                                                            X.to_numpy(), y.to_numpy(), epsilon_rate=0.05,
-                                                           loss_fn='accuracy_score', n_order=2, wrapper_for_torch=False, binary=True)
+                                                           loss_fn='accuracy_score', n_order=2, torch_input=False, binary_output=True)
         self.assertIsInstance(fis_explainer_test_case, explainers.fis_explainer)
         fis_explainer_test_case.ref_explain(model_reliance=False)
         self.assertIsNotNone(fis_explainer_test_case.ref_analysis)
         fis_explainer_test_case.rset_explain(main_effect=True, interaction_effect=True)
         self.assertIsNotNone(fis_explainer_test_case.FIS_in_Rashomon_set)
 
+    def test_input_type(self):
+        class MLP(nn.Module):
+            def __init__(self, nn_arch):
+                super(MLP, self).__init__()
+                self.nfeature, self.nclass, self.nneuron, self.nlayer = nn_arch
+
+                self.read_in = nn.Linear(self.nfeature, self.nneuron)
+                self.ff = nn.Linear(self.nneuron, self.nneuron)
+                self.read_out = nn.Linear(self.nneuron, self.nclass)
+
+            def forward(self, x):
+                x = self.read_in(x)
+                for i in range(self.nlayer):
+                    x = F.relu(self.ff(x))
+                logits = self.read_out(x)
+                return logits
+
+        df = pd.read_csv("compas.csv")
+        X, y = df.iloc[:, :-1], df.iloc[:, -1]
+        X, y = torch.Tensor(X.to_numpy()), torch.Tensor(y.to_numpy())
+        model = MLP([X.shape[1], 2, 100, 3])
+        fis_explainer_test_case = explainers.fis_explainer(model, X, y, epsilon_rate=0.01, loss_fn='log_loss', n_order=2, torch_input=True, binary_output=False)
+        self.assertIsInstance(fis_explainer_test_case, explainers.fis_explainer)
+        self.assertIsNotNone(fis_explainer_test_case.prediction)
+        fis_explainer_binary_output_test_case = explainers.fis_explainer(model, X, y, epsilon_rate=0.01, loss_fn='log_loss', n_order=2, torch_input=True, binary_output=True)
+        self.assertIsInstance(fis_explainer_binary_output_test_case, explainers.fis_explainer)
+        self.assertIsNotNone(fis_explainer_binary_output_test_case.prediction)
 
     def test_halo_plot(self):
         df = pd.read_csv("compas.csv")
@@ -63,7 +93,7 @@ class grs_TestCase(unittest.TestCase):
         # model_clf = MLPClassifier(hidden_layer_sizes=[100,100,100], random_state=1, max_iter=300).fit(X.to_numpy(), y.to_numpy())
         fis_explainer_test_case = explainers.fis_explainer(model_clf,
                                                            X_added_constant, y, epsilon_rate=0.001,
-                                                           loss_fn='log_loss', n_order=2, wrapper_for_torch=False, binary=False)
+                                                           loss_fn='log_loss', n_order=2, torch_input=False, binary_output=False)
         self.assertIsInstance(fis_explainer_test_case, explainers.fis_explainer)
         fis_explainer_test_case.ref_explain(model_reliance=False)
         self.assertIsNotNone(fis_explainer_test_case.ref_analysis)
@@ -85,7 +115,7 @@ class grs_TestCase(unittest.TestCase):
         # model_clf = MLPClassifier(hidden_layer_sizes=[100,100,100], random_state=1, max_iter=300).fit(X.to_numpy(), y.to_numpy())
         fis_explainer_test_case = explainers.fis_explainer(model_clf,
                                                            X_added_constant, y, epsilon_rate=0.001,
-                                                           loss_fn='log_loss', n_order=2, wrapper_for_torch=False, binary=False)
+                                                           loss_fn='log_loss', n_order=2, torch_input=False, binary_output=False)
         explainers.fis_explainer.load_results(fis_explainer_test_case,
                                                   results_path='../results')
         self.assertIsNotNone(fis_explainer_test_case.FIS_in_Rashomon_set)

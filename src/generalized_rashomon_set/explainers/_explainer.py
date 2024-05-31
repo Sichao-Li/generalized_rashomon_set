@@ -2,7 +2,7 @@ import copy
 import os
 import numpy as np
 from functools import lru_cache
-from ..utils import model_wrapper
+from ..utils import model_wrapper, model_wrapper_image, model_wrapper_binary_output
 from ..config import OUTPUT_DIR, time_str
 from ..utils import find_all_n_order_feature_pairs
 from ..utils import load_json, save_json
@@ -20,9 +20,9 @@ class fis_explainer:
         epsilon_rate=0.1,
         loss_fn=None,
         n_order=2,
-        wrapper_for_torch=False,
+        torch_input=False,
         delta=0.1,
-        binary=False
+        binary_output=False
     ):
 
         self.logger = logger
@@ -31,39 +31,51 @@ class fis_explainer:
         self.quadrants = {0: [0, 0], 1: [0, 1], 2: [1, 0], 3: [1, 1]}
         self.input, self.output = self.arg_checks(input, output)
         self.name_id = time_str+'-{}-{}'.format(loss_fn,epsilon_rate)
-        self.logger.info('You can call function explainer.load_results(results_path="") to load trained results if exist')
+        self.logger.info('You can call function load_results(explainer, results_path="") to load trained results if exist')
         # self.v_list = self.init_variable_list()
         self.loss_fn = loss_fn
+        # image segmentation processing
         if hasattr(input, 'num_features'):
             self.v_list = range(input.num_features)
-            self.softmax = True
+            self.image_input = True
         else:
-            self.softmax = False
+            self.image_input = False
             self.v_list = range(len(self.input[-1]))
         self.delta=delta
-        self.binary=binary
+        self.binary_output=binary_output
         self.prediction_fn_exist = True
-        # define if a model is built from torch
-        if wrapper_for_torch:
-            if self.softmax:
-                self.model = model_wrapper(model, wrapper_for_torch=True, softmax=True,
-                                           preprocessor=self.input._preprocess)
-                self.prediction = self._get_prediction(self.input.input)
-            elif self.binary:
-                self.model = model_wrapper(model, wrapper_for_torch=True, softmax=False, binary=self.binary)
-                self.prediction = self._get_prediction(self.input)
-            else:
-                self.model = model_wrapper(model, wrapper_for_torch=True, softmax=False)
-                self.prediction = self._get_prediction(self.input)
+        image_input = self.image_input or False
+        if binary_output:
+            model_wrapper_instance = model_wrapper_binary_output(model, torch_input=torch_input)
+        elif image_input:
+            model_wrapper_instance = model_wrapper_image(model, torch_input=torch_input, preprocessor=self.input._preprocess)
+            self.prediction = self._get_prediction(self.input.input)
         else:
-            self.model = model_wrapper(model, wrapper_for_torch=False, softmax=False)
-            self.prediction = self._get_prediction(self.input)
+            model_wrapper_instance = model_wrapper(model, torch_input=torch_input)
+
+        self.model = model_wrapper_instance
+        self.prediction = self._get_prediction(self.input)
         if not isinstance(self.prediction, np.ndarray):
             self.prediction = self.prediction.detach().numpy()
+        # if torch_input:
+        #     if self.image_input:
+        #         self.model = model_wrapper(model, torch_input=True, image_input=True,
+        #                                    preprocessor=self.input._preprocess)
+        #         self.prediction = self._get_prediction(self.input.input)
+        #     elif self.binary_output:
+        #         self.model = model_wrapper(model, torch_input=True, image_input=False, binary_output=self.binary_output)
+        #         self.prediction = self._get_prediction(self.input)
+        #     else:
+        #         self.model = model_wrapper(model, torch_input=True, image_input=False)
+        #         self.prediction = self._get_prediction(self.input)
+        # else:
+        #     self.model = model_wrapper(model, torch_input=False, image_input=False)
+        #     self.prediction = self._get_prediction(self.input)
 
-        self.fis_attributor = feature_attributor(self.model, self.loss_fn, self.binary, self.delta)
+
+        self.fis_attributor = feature_attributor(self.model, self.loss_fn, self.binary_output, self.delta)
         self.loss = self.fis_attributor.loss_func(self.output, self.prediction)
-        # self.loss = loss_func(self.loss_fn, self.output, self.prediction, self.binary)
+        # self.loss = loss_func(self.loss_fn, self.output, self.prediction, self.binary_output)
         self.epsilon = self.loss*epsilon_rate
         self.all_pairs = find_all_n_order_feature_pairs((self.v_list), n_order=n_order)
         # self.m_all, self.points_all_positive, self.points_all_negative, self.main_effects = self.explore_m_in_R(self.epsilon, self.loss, range(len(self.input[-1])), model, input, output, delta=0.1, regression=self.regression)
@@ -86,24 +98,24 @@ class fis_explainer:
         else:
             return list(range(len(self.input[-1])))
 
-    def configure_model(self, model, wrapper_for_torch, softmax, binary, preprocessor):
-        if wrapper_for_torch:
-            self.configure_torch_model(model, softmax, binary, preprocessor)
-        else:
-            self.configure_generic_model(model)
-
-    def configure_torch_model(self, model, softmax, binary, preprocessor):
-        if softmax:
-            self.model = model_wrapper(model, wrapper_for_torch=True, softmax=True, preprocessor=preprocessor)
-        elif binary:
-            self.model = model_wrapper(model, wrapper_for_torch=True, softmax=False, binary=binary)
-        else:
-            self.model = model_wrapper(model, wrapper_for_torch=True, softmax=False)
-        self.prediction = self._get_prediction(self.input)
-
-    def configure_generic_model(self, model):
-        self.model = model_wrapper(model, wrapper_for_torch=False, softmax=False)
-        self.prediction = self._get_prediction(self.input)
+    # def configure_model(self, model, torch_input, image_input, binary_output, preprocessor):
+    #     if torch_input:
+    #         self.configure_torch_model(model, image_input, binary_output, preprocessor)
+    #     else:
+    #         self.configure_generic_model(model)
+    #
+    # def configure_torch_model(self, model, image_input, binary_output, preprocessor):
+    #     if image_input:
+    #         self.model = model_wrapper(model, torch_input=True, image_input=True, preprocessor=preprocessor)
+    #     elif binary_output:
+    #         self.model = model_wrapper(model, torch_input=True, image_input=False, binary_output=binary_output)
+    #     else:
+    #         self.model = model_wrapper(model, torch_input=True, image_input=False)
+    #     self.prediction = self._get_prediction(self.input)
+    #
+    # def configure_generic_model(self, model):
+    #     self.model = model_wrapper(model, torch_input=False, image_input=False)
+    #     self.prediction = self._get_prediction(self.input)
 
     @staticmethod
     def load_results(explainer, results_path=OUTPUT_DIR):
@@ -142,7 +154,7 @@ class fis_explainer:
     def _get_ref_main_effect(self, model_reliance=False):
         main_effects_ref = []
         mr_ref = []
-        if not self.softmax:
+        if not self.image_input:
             for i in self.v_list:
                 X0 = self.input.copy()
                 if model_reliance:
@@ -163,7 +175,7 @@ class fis_explainer:
     def _get_ref_joint_effect(self):
         joint_effects_ref = []
         for pair_idx in self.all_pairs:
-            if not self.softmax:
+            if not self.image_input:
                 X0 = self.input.copy()
                 loss_after, loss_before = self.fis_attributor.feature_effect(pair_idx, X0=X0, y=self.output, shuffle_times=30)
                 joint_effects_ref.append(loss_after-loss_before)

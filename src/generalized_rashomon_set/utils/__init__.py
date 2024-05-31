@@ -1,4 +1,4 @@
-from ._model_wrapper import model_wrapper
+from ._model_wrapper import model_wrapper, model_wrapper_image, model_wrapper_binary_output
 from ._general_utils import colors_vis
 from ._general_utils import pd_to_numpy
 from ._general_utils import find_all_n_order_feature_pairs, find_all_sum_to_one_pairs

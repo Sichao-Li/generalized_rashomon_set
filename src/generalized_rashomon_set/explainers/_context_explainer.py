@@ -9,7 +9,7 @@ class fis_explainer_context(fis_explainer):
     def __init__(self, context, **kwargs):
         self.context = context
         super(fis_explainer_context, self).__init__(**kwargs)
-        self.fis_attributor = feature_attributor(self.model, self.loss_fn, self.binary)
+        self.fis_attributor = feature_attributor(self.model, self.loss_fn, self.binary_output)
 
     def _get_ref_main_effect(self, model_reliance=False):
         main_effects_ref = []
