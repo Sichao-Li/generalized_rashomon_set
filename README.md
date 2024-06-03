@@ -85,7 +85,9 @@ model =  MLPRegressor(hidden_layer_sizes, max_iter=200).fit(X, y)
 
 # explain the model by exploring the Rashomon set
 explainer = explainers.fis_explainer(model, X_test, y_test, epsilon_rate=0.05,
-                                     loss_fn='mean_squared_error', n_ways=2, delta=0.5, wrapper_for_torch=False)
+                                     loss_fn='mean_squared_error', n_order=2, delta=0.5, torch_input=False)
+explainer.ref_explain()
+explainer.rset_explain()
 
 # visualize the predictions
 plots.swarm_plot_MR()
