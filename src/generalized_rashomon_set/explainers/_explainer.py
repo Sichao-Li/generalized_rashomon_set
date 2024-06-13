@@ -324,8 +324,8 @@ class fis_explainer:
                     self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['min'] = np.min(fis_each_pair)
                     self.FIS_in_Rashomon_set['pair_idx_{}'.format(idx)]['results']['max'] = np.max(fis_each_pair)
                 self.logger.info('Calculation done')
-                save_json(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}-{}-{}.json'.format(self.name_id, self.epsilon, self.loss_fn), self.FIS_in_Rashomon_set)
-                self.logger.info('Explanation is saved to {}'.format(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}-{}-{}.json').format(self.name_id, self.epsilon, self.loss_fn))
+                save_json(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json'.format(self.name_id), self.FIS_in_Rashomon_set)
+                self.logger.info('Explanation is saved to {}'.format(OUTPUT_DIR+'/FIS-in-Rashomon-set-{}.json').format(self.name_id))
             else:
                 self.logger.info('Already exists, skip')
         logging.shutdown()
