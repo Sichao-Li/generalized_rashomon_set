@@ -97,6 +97,8 @@ class model_wrapper_binary_output(model_wrapper):
         super().__init__(model, torch_input)
 
     def predict(self, X):
+        if hasattr(self.model, 'predict'):
+            return self.model.predict(X)
         X = torch.tensor(X).float()
         pred = self.model(X)
         _, predicted = pred.max(1)

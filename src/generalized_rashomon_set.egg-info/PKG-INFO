@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: generalized_rashomon_set
-Version: 0.1.1
+Version: 0.1.2
 Summary: Test version of Generalized Rashomon set
 Author-email: Sichao <sichao.li@anu.edu.au>
 Project-URL: Homepage, https://sichao-li.github.io/
@@ -86,7 +86,11 @@ pip install -i https://test.pypi.org/simple/ generalized-rashomon-set
 ```
 ### Usage
 ```
-import grs
+from generalized_rashomon_set import utils
+from generalized_rashomon_set import plots
+from generalized_rashomon_set import explainers
+from generalized_rashomon_set import config
+
 
 # train a MLP model
 model =  MLPRegressor(hidden_layer_sizes, max_iter=200).fit(X, y)
@@ -96,9 +100,21 @@ explainer = explainers.fis_explainer(model, X_test, y_test, epsilon_rate=0.05,
                                      loss_fn='mean_squared_error', n_ways=2, delta=0.5, wrapper_for_torch=False)
 
 # visualize the predictions
-plots.swarm_plot()
+plots.swarm_plot_MR()
+plots.swarm_plot_FIS()
 plots.halo_plot()
 ```
+### Key parameters
+* `model`: the trained reference/optimal model, compatible with sklearn and pytorch models
+* `input`: the input data, a numpy array or a torch tensor 
+* `output`: the output data, a numpy array or a torch tensor
+* `epsilon_rate`: a positive value used to set the bound for the Rashomon set, default is 0.1
+* `loss_fn`: the loss function, default is 'mean_squared_error' for regression and 'log_loss' for classification
+* `n_order`: the number to define the highest order of attribution, default is 2, which means the feature interaction
+* `wrapper_for_torch`: a boolean value to indicate whether the model is a pytorch model, set to False when using sklearn models, default is False
+* `delta`: a positive value to set the step size of searching the Rashomon set, default is 0.1; Note: the current version only supports delta=0.1 for interaction plots 
+* `binary`: a boolean value to indicate whether the loss is calculated by scores or binary classification results, default is False and only used for classification tasks
+
 ----
 
 ## Demo
