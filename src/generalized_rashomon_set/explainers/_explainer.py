@@ -10,6 +10,7 @@ from ..config import logger
 import logging
 from ._feature_attributor import feature_attributor
 from ..utils import find_all_sum_to_one_pairs
+#TODO: copy input from tensor
 
 class fis_explainer:
     def __init__(
@@ -445,7 +446,7 @@ class fis_explainer:
                     if m_multi_boundary_e[idxj, idxi, k] == m_prev:
                         main_effect_all_ratio[idxj, idxi, k] = loss_after / loss_before
                         main_effect_all_diff[idxj, idxi, k] = loss_after - loss_before
-                        arr_sub_list.append(arr_sub_list[-1])
+                        main_effect_complete_list.append(main_effect_complete_list[-1])
                     else:
                         X0[:, i] = X0[:, i] * m_multi_boundary_e[idxj, idxi, k]
                         # make sure X1 and X2 are consistent with X0
