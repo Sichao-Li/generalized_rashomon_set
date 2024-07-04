@@ -441,9 +441,11 @@ class fis_explainer:
             for idxi, i in enumerate(v_list):
                 for k in range(2):
                     X0 = input.copy()
+                    arr_sub_list = []
                     if m_multi_boundary_e[idxj, idxi, k] == m_prev:
                         main_effect_all_ratio[idxj, idxi, k] = loss_after / loss_before
                         main_effect_all_diff[idxj, idxi, k] = loss_after - loss_before
+                        arr_sub_list.append(arr_sub_list[-1])
                     else:
                         X0[:, i] = X0[:, i] * m_multi_boundary_e[idxj, idxi, k]
                         # make sure X1 and X2 are consistent with X0
@@ -452,12 +454,11 @@ class fis_explainer:
                         main_effect_all_ratio[idxj, idxi, k] = loss_after / loss_before
                         main_effect_all_diff[idxj, idxi, k] = loss_after - loss_before
                         m_prev = m_multi_boundary_e[idxj, idxi, k]
-                        sub_list = []
                         for idxt, t in enumerate(v_list):
                             X2 = X1.copy()
                             loss_after, loss_before = self.fis_attributor.feature_effect(t, X2, output, 30)
-                            sub_list.append(loss_after - loss_before)
-                        main_effect_complete_list.append(sub_list)
+                            arr_sub_list.append(loss_after - loss_before)
+                        main_effect_complete_list.append(arr_sub_list)
         return main_effect_all_ratio, main_effect_all_diff, main_effect_complete_list
 
     def _get_all_joint_effects(self, m_multi_boundary_e, input, output, v_list, n_order):
