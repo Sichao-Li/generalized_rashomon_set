@@ -119,7 +119,7 @@ class fis_explainer:
     #     self.prediction = self._get_prediction(self.input)
 
     @staticmethod
-    def load_results(explainer, results_path=OUTPUT_DIR):
+    def load_results(explainer, results_path=None):
         content_in_results = os.listdir(results_path)
         analysis_results = {'FIS-in-Rashomon-set': {'saved': False, 'path': '', 'variable_name': 'FIS_in_Rashomon_set'},
                             'FIS-joint-effect-raw': {'saved': False, 'path': '',
@@ -137,7 +137,10 @@ class fis_explainer:
                 for content in content_in_results:
                     if result in content:
                         analysis_results[result]['saved'] = True
-                        result_path = OUTPUT_DIR + '/' + content
+                        if results_path is None:
+                            result_path = OUTPUT_DIR + '/' + content
+                        else:
+                            result_path = results_path + '/' + content
                         analysis_results[result]['path'] = result_path
                         att_name = analysis_results[result]['variable_name']
                         setattr(explainer, att_name, load_json(result_path))
