@@ -1,136 +1,70 @@
 import torch
 from PIL import Image
+import numpy as np
 
 
-class model_wrapper:
-    def __init__(
-            self,
-            model,
-            torch_input
-    ):
+class ModelWrapper:
+    def __init__(self, model, predict_proba=False):
         self.model = model
-        self.torch_input = torch_input
-        # self.image_input = image_input
-        # self.preprocessor = preprocessor
-        # self.binary_output = binary_output
+        self.predict_proba = predict_proba
 
     def predict(self, X):
-        if self.torch_input:
-            X = torch.tensor(X).float()
-            if hasattr(self.model, 'predict'):
-                return self.model.predict(X).detach().numpy()
-            # elif self.image_input:
-            #     if hasattr(X, 'shape'):
-            #         X = Image.fromarray(X)
-            #     X = self.preprocessor(X)
-            #     return self.model(X).squeeze(0).image_input(0)
-            # elif self.binary_output:
-            #     pred = self.model(X)
-            #     _, predicted = pred.max(1)
-            #     return predicted.detach().numpy()
-            else:
-                return self.model(X).detach().numpy()
+        if self.predict_proba:
+            return self._predict_proba(X)
         else:
-            if hasattr(self.model, 'predict'):
-                if hasattr(self.model, 'predict_proba'):
-                    return self.model.predict_proba(X)[:, 1]
-                else:
-                    return self.model.predict(X)
-            else:
-                return self.model(X)
+            return self._predict(X)
 
-    # def predict(self, X):
-    #     if self.torch_input:
-    #         if hasattr(self.model, 'predict'):
-    #             X = torch.tensor(X).float()
-    #             return self.model.predict(X).detach().numpy()
-    #         else:
-    #             if self.image_input:
-    #                 if hasattr(X, 'shape'):
-    #                     X = Image.fromarray(X)
-    #                 X = self.preprocessor(X)
-    #                 return self.model(X).squeeze(0).image_input(0)
-    #             elif self.binary_output:
-    #                 X = torch.tensor(X).float()
-    #                 pred = self.model(X)
-    #                 _, predicted = pred.max(1)
-    #                 return predicted.detach().numpy()
-    #             else:
-    #                 X = torch.tensor(X).float()
-    #                 pred = self.model(X)
-    #                 return pred.detach().numpy()
-    #     else:
-    #         X = X
-    #         if hasattr(self.model, 'predict'):
-    #             if not hasattr(self.model, 'predict_proba'):
-    #                 return self.model.predict(X)
-    #             else:
-    #                 return self.model.predict_proba(X)[:, 1]
-    #         else:
-    #             return self.model(X)
+    def _predict_proba(self, X):
+        if hasattr(self.model, 'predict_proba'):
+            return self.model.predict_proba(X)
+        raise NotImplementedError("predict_proba is not available for this model")
+
+    def _predict(self, X):
+        if hasattr(self.model, 'predict'):
+            pred = self.model.predict(X)
+        elif isinstance(self.model, torch.nn.Module):
+            X = torch.as_tensor(X, dtype=torch.float32)
+            with torch.no_grad():
+                pred = self.model(X)
+        else:
+            raise TypeError("Unsupported model type")
+
+        return self._to_numpy(pred)
 
 
-class model_wrapper_image(model_wrapper):
-    def __init__(
-            self,
-            model,
-            torch_input,
-            preprocessor=None
-    ):
-        super().__init__(model, torch_input)
+    @staticmethod
+    def _to_numpy(tensor):
+        if isinstance(tensor, np.ndarray):
+            return tensor
+        elif isinstance(tensor, torch.Tensor):
+            return tensor.detach().cpu().numpy()
+        else:
+            raise TypeError(f"Unsupported type: {type(tensor)}")
+
+
+class ImageModelWrapper(ModelWrapper):
+    def __init__(self, model, preprocessor=None):
+        super().__init__(model)
         self.preprocessor = preprocessor
 
     def predict(self, X):
-        X = torch.tensor(X).float()
-        if hasattr(X, 'shape'):
-            X = Image.fromarray(X)
-        X = self.preprocessor(X)
-        return self.model(X).squeeze(0).image_input(0)
+        if not isinstance(X, torch.Tensor):
+            X = torch.as_tensor(X, dtype=torch.float32)
+        if X.dim() == 3:
+            X = X.unsqueeze(0)  # Add batch dimension if missing
+        if self.preprocessor:
+            X = self.preprocessor(X)
+        with torch.no_grad():
+            pred = self.model(X)
+        return self._to_numpy(pred.squeeze(0))
 
 
-class model_wrapper_binary_output(model_wrapper):
-    def __init__(
-            self,
-            model,
-            torch_input
-    ):
-        super().__init__(model, torch_input)
-
+class BinaryOutputModelWrapper(ModelWrapper):
     def predict(self, X):
         if hasattr(self.model, 'predict'):
             return self.model.predict(X)
-        X = torch.tensor(X).float()
-        pred = self.model(X)
-        _, predicted = pred.max(1)
-        return predicted.detach().numpy()
-
-
-    # def predict(self, X):
-    #     if self.torch_input:
-    #         if hasattr(self.model, 'predict'):
-    #             X = torch.tensor(X).float()
-    #             return self.model.predict(X).detach().numpy()
-    #         else:
-    #             if self.image_input:
-    #                 if hasattr(X, 'shape'):
-    #                     X = Image.fromarray(X)
-    #                 X = self.preprocessor(X)
-    #                 return self.model(X).squeeze(0).image_input(0)
-    #             elif self.binary_output:
-    #                 X = torch.tensor(X).float()
-    #                 pred = self.model(X)
-    #                 _, predicted = pred.max(1)
-    #                 return predicted.detach().numpy()
-    #             else:
-    #                 X = torch.tensor(X).float()
-    #                 pred = self.model(X)
-    #                 return pred.detach().numpy()
-    #     else:
-    #         X = X
-    #         if hasattr(self.model, 'predict'):
-    #             if not hasattr(self.model, 'predict_proba'):
-    #                 return self.model.predict(X)
-    #             else:
-    #                 return self.model.predict_proba(X)[:, 1]
-    #         else:
-    #             return self.model(X)
+        X = torch.as_tensor(X, dtype=torch.float32)
+        with torch.no_grad():
+            pred = self.model(X)
+            _, predicted = torch.max(pred, 1)
+        return self._to_numpy(predicted)

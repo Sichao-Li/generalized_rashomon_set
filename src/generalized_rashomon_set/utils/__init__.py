@@ -1,7 +1,7 @@
-from ._model_wrapper import model_wrapper, model_wrapper_image, model_wrapper_binary_output
+from ._model_wrapper import ModelWrapper, ImageModelWrapper, BinaryOutputModelWrapper
 from ._general_utils import colors_vis
 from ._general_utils import pd_to_numpy
 from ._general_utils import find_all_n_order_feature_pairs, find_all_sum_to_one_pairs
-from ._general_utils import load_json, save_json
+from ._general_utils import load_json, save_json, duplicate
 from ._rset_helper import  high_order_vis_loss
 from ._rset_helper import pairwise_vis_loss

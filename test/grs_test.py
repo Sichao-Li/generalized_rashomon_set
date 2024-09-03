@@ -21,7 +21,7 @@ class grs_TestCase(unittest.TestCase):
         model_clf = MLPClassifier(random_state=1, max_iter=300).fit(X.to_numpy(), y.to_numpy())
         fis_explainer_test_case = explainers.fis_explainer(model_clf,
                                                            X.to_numpy(), y.to_numpy(), epsilon_rate=0.001,
-                                                           loss_fn='log_loss', n_order=2, delta=0.5, torch_input=False)
+                                                           loss_fn='log_loss', n_order=2, delta=0.5, predict_proba=False)
         self.assertIsInstance(fis_explainer_test_case, explainers.fis_explainer)
         fis_explainer_test_case.ref_explain(model_reliance=False)
         self.assertIsNotNone(fis_explainer_test_case.ref_analysis)
@@ -35,7 +35,8 @@ class grs_TestCase(unittest.TestCase):
         model_clf = MLPClassifier(random_state=1, max_iter=300).fit(X.to_numpy(), y.to_numpy())
         fis_explainer_test_case = explainers.fis_explainer(model_clf,
                                                            X.to_numpy(), y.to_numpy(), epsilon_rate=0.001,
-                                                           loss_fn='log_loss', n_order=2, delta=0.1, torch_input=False)
+                                                           loss_fn='log_loss', n_order=2, delta=0.1, predict_proba=True)
+        explainers.fis_explainer.load_results(fis_explainer_test_case, results_path='/home/sichao/Documents/Projects/generalized_rashomon_set_refactor/results/test')
         fis_explainer_test_case.ref_explain(model_reliance=False)
         fis_explainer_test_case.rset_explain(main_effect=True, interaction_effect=True)
         self.assertIsNotNone(fis_explainer_test_case.FIS_in_Rashomon_set)

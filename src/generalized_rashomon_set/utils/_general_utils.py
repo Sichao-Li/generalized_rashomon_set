@@ -5,6 +5,7 @@ from itertools import combinations, product, combinations_with_replacement
 import matplotlib.colors as mcolors
 import numpy as np
 import pandas as pd
+import torch
 from sklearn import metrics
 
 
@@ -137,4 +138,8 @@ def load_json(path):
         json_data = json.load(f)
     return json_data
 
-
+def duplicate(data):
+    if isinstance(data, np.ndarray):
+        return np.copy(data)
+    elif isinstance(data, torch.Tensor):
+        return data.clone()

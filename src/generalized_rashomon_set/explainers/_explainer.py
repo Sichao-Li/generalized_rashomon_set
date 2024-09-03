@@ -1,16 +1,16 @@
-import copy
 import os
 import numpy as np
+import pandas as pd
+import torch
 from functools import lru_cache
-from ..utils import model_wrapper, model_wrapper_image, model_wrapper_binary_output
+from ..utils import ModelWrapper, ImageModelWrapper, BinaryOutputModelWrapper
 from ..config import OUTPUT_DIR, time_str
 from ..utils import find_all_n_order_feature_pairs
-from ..utils import load_json, save_json
+from ..utils import load_json, save_json, duplicate
 from ..config import logger
 import logging
 from ._feature_attributor import feature_attributor
 from ..utils import find_all_sum_to_one_pairs
-#TODO: copy input from tensor
 
 class fis_explainer:
     def __init__(
@@ -21,16 +21,17 @@ class fis_explainer:
         epsilon_rate=0.1,
         loss_fn=None,
         n_order=2,
-        torch_input=False,
         delta=0.1,
-        binary_output=False
+        binary_output=False,
+        predict_proba=False
     ):
 
         self.logger = logger
         self.n_order = n_order
         # self.model = model
         self.quadrants = {0: [0, 0], 1: [0, 1], 2: [1, 0], 3: [1, 1]}
-        self.input, self.output = self.arg_checks(input, output)
+        # make sure all inputs are tensors
+        self.input, self.output = self.arg_checks_to_torch(input, output)
         self.name_id = time_str+'-{}-{}'.format(loss_fn,epsilon_rate)
         self.logger.info('You can call function load_results(explainer, results_path="") to load trained results if exist')
         # self.v_list = self.init_variable_list()
@@ -44,35 +45,21 @@ class fis_explainer:
             self.v_list = range(len(self.input[-1]))
         self.delta=delta
         self.binary_output=binary_output
-        self.prediction_fn_exist = True
         image_input = self.image_input or False
+
+
         if binary_output:
-            model_wrapper_instance = model_wrapper_binary_output(model, torch_input=torch_input)
+            model_wrapper_instance = BinaryOutputModelWrapper(model)
         elif image_input:
-            model_wrapper_instance = model_wrapper_image(model, torch_input=torch_input, preprocessor=self.input._preprocess)
-            self.prediction = self._get_prediction(self.input.input)
+            model_wrapper_instance = ImageModelWrapper(model, preprocessor=self.input._preprocess)
+            self.prediction = model.predict(self.input.input)
         else:
-            model_wrapper_instance = model_wrapper(model, torch_input=torch_input)
+            model_wrapper_instance = ModelWrapper(model, predict_proba=predict_proba)
 
         self.model = model_wrapper_instance
-        self.prediction = self._get_prediction(self.input)
+        self.prediction = self.model.predict(self.input)
         if not isinstance(self.prediction, np.ndarray):
             self.prediction = self.prediction.detach().numpy()
-        # if torch_input:
-        #     if self.image_input:
-        #         self.model = model_wrapper(model, torch_input=True, image_input=True,
-        #                                    preprocessor=self.input._preprocess)
-        #         self.prediction = self._get_prediction(self.input.input)
-        #     elif self.binary_output:
-        #         self.model = model_wrapper(model, torch_input=True, image_input=False, binary_output=self.binary_output)
-        #         self.prediction = self._get_prediction(self.input)
-        #     else:
-        #         self.model = model_wrapper(model, torch_input=True, image_input=False)
-        #         self.prediction = self._get_prediction(self.input)
-        # else:
-        #     self.model = model_wrapper(model, torch_input=False, image_input=False)
-        #     self.prediction = self._get_prediction(self.input)
-
 
         self.fis_attributor = feature_attributor(self.model, self.loss_fn, self.binary_output, self.delta)
         self.loss = self.fis_attributor.loss_func(self.output, self.prediction)
@@ -86,11 +73,26 @@ class fis_explainer:
         self.ref_analysis={}
         self.rset_joint_effect_raw = {}
 
+    # @staticmethod
+    # def arg_checks(input, output):
+    #     if (input is None) or (output is None):
+    #         raise ValueError("Either input or output must be defined")
+    #     return input, output
+
     @staticmethod
-    def arg_checks(input, output):
-        if (input is None) or (output is None):
-            raise ValueError("Either input or output must be defined")
-        return input, output
+    def arg_checks_to_torch(input, output):
+        if input is None or output is None:
+            raise ValueError("Both input and output must be defined")
+
+        def to_torch_tensor(data):
+            if isinstance(data, (np.ndarray, pd.DataFrame)):
+                return torch.from_numpy(data.to_numpy() if isinstance(data, pd.DataFrame) else data).float()
+            elif isinstance(data, torch.Tensor):
+                return data.float()
+            else:
+                raise TypeError(
+                    f"Unsupported data type: {type(data)}. Expected numpy.ndarray, pandas.DataFrame, or torch.Tensor")
+        return to_torch_tensor(input), to_torch_tensor(output)
 
     @lru_cache(maxsize=None)
     def init_variable_list(self):
@@ -99,24 +101,7 @@ class fis_explainer:
         else:
             return list(range(len(self.input[-1])))
 
-    # def configure_model(self, model, torch_input, image_input, binary_output, preprocessor):
-    #     if torch_input:
-    #         self.configure_torch_model(model, image_input, binary_output, preprocessor)
-    #     else:
-    #         self.configure_generic_model(model)
-    #
-    # def configure_torch_model(self, model, image_input, binary_output, preprocessor):
-    #     if image_input:
-    #         self.model = model_wrapper(model, torch_input=True, image_input=True, preprocessor=preprocessor)
-    #     elif binary_output:
-    #         self.model = model_wrapper(model, torch_input=True, image_input=False, binary_output=binary_output)
-    #     else:
-    #         self.model = model_wrapper(model, torch_input=True, image_input=False)
-    #     self.prediction = self._get_prediction(self.input)
-    #
-    # def configure_generic_model(self, model):
-    #     self.model = model_wrapper(model, torch_input=False, image_input=False)
-    #     self.prediction = self._get_prediction(self.input)
+
 
     @staticmethod
     def load_results(explainer, results_path=None):
@@ -148,19 +133,15 @@ class fis_explainer:
                 if not analysis_results[result]['saved']:
                     explainer.logger.info('{} is not in {}'.format(result, content_in_results))
 
-    def _get_prediction(self, input):
-        if self.prediction_fn_exist:
-            return self.model.predict(input)
-                # return self.model.predict_proba(input)
-        else:
-            return self.output
+    # def _get_prediction(self, input):
+    #     return self.model.predict(input)
 
     def _get_ref_main_effect(self, model_reliance=False):
         main_effects_ref = []
         mr_ref = []
         if not self.image_input:
             for i in self.v_list:
-                X0 = self.input.copy()
+                X0 = duplicate(self.input)
                 if model_reliance:
                     mr = self.fis_attributor.MR(i, X0, self.output, self.model)
                     mr_ref.append(mr)
@@ -169,7 +150,7 @@ class fis_explainer:
         else:
             for i in self.v_list:
                 mask_indices = self.input._get_mask_indices_of_feature(i)
-                X0 = copy.copy(self.input.input)
+                X0 = duplicate(self.input.input)
                 loss_after, loss_before = self.fis_attributor.feature_effect([mask_indices], X0, self.output, 30)
                 main_effects_ref.append(loss_after -loss_before)
         if model_reliance:
@@ -180,11 +161,11 @@ class fis_explainer:
         joint_effects_ref = []
         for pair_idx in self.all_pairs:
             if not self.image_input:
-                X0 = self.input.copy()
+                X0 = duplicate(self.input)
                 loss_after, loss_before = self.fis_attributor.feature_effect(pair_idx, X0=X0, y=self.output, shuffle_times=30)
                 joint_effects_ref.append(loss_after-loss_before)
             else:
-                X0 = copy.copy(self.input.input)
+                X0 = duplicate(self.input.input)
                 try:
                     mask_indices = self.input._get_mask_indices_of_feature(pair_idx)
                     loss_after, loss_before = self.fis_attributor.feature_effect(mask_indices, X0=X0, y=self.output, shuffle_times=30)
@@ -376,7 +357,7 @@ class fis_explainer:
     #     termination condition: the precision of acc .0001
             while count <= 4:
         #         input new input X0 and calculate the loss
-                X0 = X.copy()
+                X0 = duplicate(X)
                 if direction:
                     X0[:, vidx] = X0[:, vidx] * (m + lr)
                 if not direction:
@@ -384,9 +365,9 @@ class fis_explainer:
                 pred = self.model.predict(X0)
                 loss_m = self.fis_attributor.loss_func(y, pred)
     #             the diffrence of changed loss and optimal loss
-                mydiff = loss_m - loss_ref
+                loss_diff = loss_m - loss_ref
 
-                if mydiff<i*bound:
+                if loss_diff<i*bound:
                     if direction:
                     #     if the loss within the bound, then m increses
                         m = m+lr
@@ -394,7 +375,10 @@ class fis_explainer:
                         m = m-lr
                     loss_after, loss_before = self.fis_attributor.feature_effect(vidx, X0, y, 30)
                     feature_attribution_main = loss_after - loss_before
-                    points.append([m, mydiff])
+                    att_diff = feature_attribution_main - self.ref_analysis['ref_main_effects'][vidx]
+                    points.append([m, loss_diff, att_diff])
+                    # print attribution change
+                    # print(feature_attribution_main - self.ref_analysis['ref_main_effects'][vidx])
         #             if the loss within the bound but stays same for loss_count times, then the vt is unimportant (the attribution of the feature is assigned 0, as the power of the single feature is not enough to change loss).
                     if loss_temp == loss_m:
                         loss_count = loss_count+1
@@ -407,7 +391,7 @@ class fis_explainer:
                 else:
                     lr=lr*0.1
                     count = count+1
-                logger.info('Feature {} at boundary {} * epsilon with m {} achieves loss difference {}'.format(vidx, i, m, mydiff))
+                logger.info('Feature {} at boundary {} * epsilon with m {} achieves loss difference {}'.format(vidx, i, m, loss_diff))
             points_all.append(points)
             m_all.append(m)
             # calculate fis based on m
@@ -444,7 +428,7 @@ class fis_explainer:
         for idxj, j in enumerate(np.arange(0, 1 + 0.1, delta)):
             for idxi, i in enumerate(v_list):
                 for k in range(2):
-                    X0 = input.copy()
+                    X0 = duplicate(input)
                     arr_sub_list = []
                     if m_multi_boundary_e[idxj, idxi, k] == m_prev:
                         main_effect_all_ratio[idxj, idxi, k] = loss_after / loss_before
@@ -453,13 +437,13 @@ class fis_explainer:
                     else:
                         X0[:, i] = X0[:, i] * m_multi_boundary_e[idxj, idxi, k]
                         # make sure X1 and X2 are consistent with X0
-                        X1 = X0.copy()
+                        X1 = duplicate(X0)
                         loss_after, loss_before = self.fis_attributor.feature_effect(i, X1, output, 30)
                         main_effect_all_ratio[idxj, idxi, k] = loss_after / loss_before
                         main_effect_all_diff[idxj, idxi, k] = loss_after - loss_before
                         m_prev = m_multi_boundary_e[idxj, idxi, k]
                         for idxt, t in enumerate(v_list):
-                            X2 = X1.copy()
+                            X2 = duplicate(X1)
                             loss_after, loss_before = self.fis_attributor.feature_effect(t, X2, output, 30)
                             arr_sub_list.append(loss_after - loss_before)
                         main_effect_complete_list.append(arr_sub_list)
