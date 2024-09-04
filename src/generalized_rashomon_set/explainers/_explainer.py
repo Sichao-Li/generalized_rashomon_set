@@ -135,9 +135,6 @@ class fis_explainer:
                 if not analysis_results[result]['saved']:
                     explainer.logger.info('{} is not in {}'.format(result, content_in_results))
 
-    @staticmethod
-
-
     # def _get_prediction(self, input):
     #     return self.model.predict(input)
 
