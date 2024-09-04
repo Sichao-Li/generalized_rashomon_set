@@ -4,10 +4,11 @@ import numpy as np
 import torch
 import pandas as pd
 import itertools
-from ..utils import find_all_sum_to_one_pairs, duplicate
+import random
+from ..utils import find_all_sum_to_one_pairs, duplicate, set_seed
 
 class feature_attributor:
-    def __init__(self, model, loss_fn, binary, delta=0.1):
+    def __init__(self, model, loss_fn, binary, delta=0.1, seed=42):
         self.model = model
         self.loss_fn = loss_fn
         self.loss_functions = {
@@ -20,6 +21,7 @@ class feature_attributor:
             'roc_auc_score': roc_auc_score,
             'accuracy_score': accuracy_score
         }
+        set_seed(seed)
         self.binary = binary
         self.delta = delta
 

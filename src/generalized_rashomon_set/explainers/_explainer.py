@@ -1,12 +1,13 @@
 import os
 import numpy as np
 import pandas as pd
+import random
 import torch
 from functools import lru_cache
 from ..utils import ModelWrapper, ImageModelWrapper, BinaryOutputModelWrapper
 from ..config import OUTPUT_DIR, time_str
 from ..utils import find_all_n_order_feature_pairs
-from ..utils import load_json, save_json, duplicate
+from ..utils import load_json, save_json, duplicate, set_seed
 from ..config import logger
 import logging
 from ._feature_attributor import feature_attributor
@@ -23,9 +24,10 @@ class fis_explainer:
         n_order=2,
         delta=0.1,
         binary_output=False,
-        predict_proba=False
+        predict_proba=False,
+        seed=42
     ):
-
+        set_seed(seed)
         self.logger = logger
         self.n_order = n_order
         # self.model = model
@@ -132,6 +134,9 @@ class fis_explainer:
                         break
                 if not analysis_results[result]['saved']:
                     explainer.logger.info('{} is not in {}'.format(result, content_in_results))
+
+    @staticmethod
+
 
     # def _get_prediction(self, input):
     #     return self.model.predict(input)
