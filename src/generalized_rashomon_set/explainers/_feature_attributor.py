@@ -81,7 +81,8 @@ class feature_attributor:
                     arr_temp = arr_temp[torch.randperm(arr_temp.size(0))]
                     X0_shuffled[idx[:, 0], idx[:, 1], :] = arr_temp
                 else:  # For other types of data
-                    X0_shuffled[:, idx] = X0_shuffled[:, idx][torch.randperm(X0_shuffled.size(0))]
+                    idx_perm = torch.randperm(X0_shuffled.size(0))
+                    X0_shuffled[:, idx] = X0_shuffled[idx_perm, idx]
             pred = self.convert_to_numpy(self.model.predict(self.convert_input(X0)))
             loss_shuffle = self.loss_func(y_true=y, y_pred=pred)
             loss_all.append(loss_shuffle)
