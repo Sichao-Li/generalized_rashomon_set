@@ -83,7 +83,7 @@ class feature_attributor:
                 else:  # For other types of data
                     idx_perm = torch.randperm(X0_shuffled.size(0))
                     X0_shuffled[:, idx] = X0_shuffled[idx_perm, idx]
-            pred = self.convert_to_numpy(self.model.predict(self.convert_input(X0)))
+            pred = self.convert_to_numpy(self.model.predict(self.convert_input(X0_shuffled)))
             loss_shuffle = self.loss_func(y_true=y, y_pred=pred)
             loss_all.append(loss_shuffle)
         return np.mean(loss_all)
