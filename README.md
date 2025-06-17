@@ -89,10 +89,13 @@ explainer = explainers.fis_explainer(model, X_test, y_test, epsilon_rate=0.05,
 explainer.ref_explain()
 explainer.rset_explain()
 
-# visualize the predictions
+# visualize the exploration of attribution and interaction range
 plots.swarm_plot_MR()
+
+explainer.fis_in_r = fis_explainer_rset._get_fis_in_r()
+explainer.loss_in_r = fis_explainer_rset._get_loss_in_r()
 plots.swarm_plot_FIS()
-plots.halo_plot()
+# plots.halo_plot()
 ```
 ### Key parameters
 * `model`: the trained reference/optimal model, compatible with sklearn and pytorch models
