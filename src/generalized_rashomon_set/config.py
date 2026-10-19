@@ -1,19 +1,26 @@
+"""Package-level configuration.
+
+Nothing here has side effects at import time.  ``OUTPUT_DIR`` (used only by
+the legacy ``save=True`` plot options) defaults to ``./results`` and can be
+set through the ``GRS_OUTPUT_DIR`` environment variable or
+:func:`set_output_dir`.
+"""
+from __future__ import annotations
+
+import logging
 import os
 from pathlib import Path
-import logging
-import time
-Path("../logs").mkdir(parents=True, exist_ok=True)
-Path("../results").mkdir(parents=True, exist_ok=True)
-ROOT_DIR = os.getcwd()
-OUTPUT_DIR = ROOT_DIR + '/../results'
-LOG_DIR = ROOT_DIR + '/../logs'
-stream_handler = logging.StreamHandler()
-stream_handler.setLevel(logging.INFO)
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s %(levelname)s %(module)s %(funcName)s %(message)s',
-                    handlers=[logging.FileHandler(LOG_DIR + "/log_{}.log".format(time.strftime("%Y%m%d-%H%M%S")),
-                                                  mode='w'),
-                              stream_handler])
-logger = logging.getLogger(__name__)
-logger.info('The output directory is {}\n The log directory is {}'.format(OUTPUT_DIR, LOG_DIR))
-time_str = time.strftime("%Y%m%d-%H%M%S")
+
+from ._explainer import enable_logging, logger  # noqa: F401  (re-export)
+
+OUTPUT_DIR = os.environ.get("GRS_OUTPUT_DIR", "results")
+
+
+def set_output_dir(path) -> None:
+    global OUTPUT_DIR
+    OUTPUT_DIR = str(path)
+
+
+def ensure_output_dir() -> str:
+    Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
+    return OUTPUT_DIR
