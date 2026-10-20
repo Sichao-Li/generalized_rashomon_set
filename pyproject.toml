@@ -4,18 +4,37 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "generalized_rashomon_set"
-version = "0.1.7"
-authors = [
-  { name="Sichao", email="sichao.li@anu.edu.au" },
-]
-description = "Test version of Generalized Rashomon set"
+version = "0.2.0"
+authors = [{ name = "Sichao Li", email = "sichao.li@anu.edu.au" }]
+description = "Sample a Rashomon set around a trained model and explain feature attributions and interactions across it"
 readme = "README.md"
-requires-python = ">=3.7"
+license = { text = "MIT" }
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy>=1.22",
+    "scikit-learn>=1.1",
+    "pandas>=1.4",
+    "matplotlib>=3.6",
+    "seaborn>=0.12",
+    "joblib>=1.1",
 ]
 
+[project.optional-dependencies]
+torch = ["torch>=1.12"]
+dev = ["pytest>=7", "statsmodels"]
 
 [project.urls]
-"Homepage" = "https://sichao-li.github.io/"
+Homepage = "https://github.com/Sichao-Li/generalized_rashomon_set"
+Paper = "https://arxiv.org/abs/2305.10181"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning:generalized_rashomon_set.*"]
