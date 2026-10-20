@@ -8,3 +8,4 @@ build/
 results/
 logs/
 .pytest_cache/
+demo/quickstart_results.json
