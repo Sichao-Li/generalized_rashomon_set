@@ -1,4 +1,4 @@
-# generalized_rashomon_set
+# Generalized Rashomon Set
 
 Sample the Rashomon set around a trained model and explain **feature attributions** and
 **feature interactions** across it, not just for one model.
@@ -154,6 +154,12 @@ demo/, experiments/   notebooks
   author={Li, Sichao and Wang, Rong and Deng, Quanling and Barnard, Amanda},
   booktitle={International Conference on Learning Representations (ICLR)},
   year={2024}
+}
+@inproceedings{li2026practical,
+  title={Practical and Efficient Rashomon Set Sampling for Model Interpretability},
+  author={Li, Sichao and Barnard, Amanda and Deng, Quanling },
+  booktitle={Annual Conference on Artificial Intelligence and Statistics (AISTATS)},
+  year={2026}
 }
 ```
 
